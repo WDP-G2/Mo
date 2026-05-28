@@ -1,20 +1,24 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+
+import HomeScreen from './src/screens/home/HomeScreen';
+import LoginScreen from './src/screens/auth/LoginScreen';
+import RegisterScreen from './src/screens/auth/RegisterScreen';
 
 export default function App() {
+  const [authScreen, setAuthScreen] = useState('login');
+
+  if (authScreen === 'register') {
+    return <RegisterScreen onNavigateLogin={() => setAuthScreen('login')} />;
+  }
+
+  if (authScreen === 'home') {
+    return <HomeScreen />;
+  }
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <LoginScreen
+      onLogin={() => setAuthScreen('home')}
+      onNavigateRegister={() => setAuthScreen('register')}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
