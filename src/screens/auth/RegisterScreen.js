@@ -4,12 +4,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AuthDivider from '../../components/auth/AuthDivider';
 import AuthInput from '../../components/auth/AuthInput';
@@ -61,7 +61,7 @@ export default function RegisterScreen({ onNavigateLogin }) {
               <AuthInput
                 containerStyle={styles.inputGap}
                 icon={<Ionicons name="lock-closed-outline" size={19} color={colors.darkTextMuted} />}
-                label={'M\u1eacT KH\u1ea8U'}
+                label="MẬT KHẨU"
                 placeholder={'T\u1ed1i thi\u1ec3u 8 k\u00fd t\u1ef1'}
                 rightIcon={
                   <Pressable hitSlop={10}>
@@ -75,7 +75,7 @@ export default function RegisterScreen({ onNavigateLogin }) {
               <AuthInput
                 containerStyle={styles.inputGap}
                 icon={<Ionicons name="lock-closed-outline" size={19} color={colors.darkTextMuted} />}
-                label={'X\u00c1C NH\u1eacN M\u1eacT KH\u1ea8U'}
+                label="XÁC NHẬN MẬT KHẨU"
                 placeholder={'Nh\u1eadp l\u1ea1i m\u1eadt kh\u1ea9u'}
                 rightIcon={
                   <Pressable hitSlop={10}>

@@ -1,28 +1,33 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../constants/theme';
 
 const tabs = [
-  { icon: 'home', label: 'Trang ch\u1ee7', active: true },
-  { icon: 'trophy-outline', label: 'Gi\u1ea3i \u0111\u1ea5u' },
-  { icon: 'calendar-outline', label: 'Tin t\u1ee9c' },
-  { icon: 'person-circle-outline', label: 'T\u00e0i kho\u1ea3n' },
+  { key: 'dashboard', icon: 'grid-outline', activeIcon: 'grid', label: 'T\u1ed5ng quan' },
+  { key: 'tournaments', icon: 'trophy-outline', activeIcon: 'trophy', label: 'Gi\u1ea3i \u0111\u1ea5u' },
+  { key: 'news', icon: 'newspaper-outline', activeIcon: 'newspaper', label: 'Tin t\u1ee9c' },
+  { key: 'users', icon: 'people-outline', activeIcon: 'people', label: 'Ng\u01b0\u1eddi d\u00f9ng' },
+  { key: 'more', icon: 'ellipsis-horizontal-circle-outline', activeIcon: 'ellipsis-horizontal-circle', label: 'Th\u00eam' },
 ];
 
-export default function HomeBottomTabs() {
+export default function HomeBottomTabs({ activeTab, onTabPress }) {
   return (
     <View style={styles.container}>
-      {tabs.map((tab) => (
-        <View key={tab.label} style={styles.tab}>
-          <Ionicons
-            name={tab.icon}
-            size={18}
-            color={tab.active ? colors.primary : colors.darkTextMuted}
-          />
-          <Text style={[styles.label, tab.active && styles.activeLabel]}>{tab.label}</Text>
-        </View>
-      ))}
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.key;
+
+        return (
+          <Pressable key={tab.key} style={styles.tab} onPress={() => onTabPress(tab.key)}>
+            <Ionicons
+              name={isActive ? tab.activeIcon : tab.icon}
+              size={18}
+              color={isActive ? colors.primary : colors.darkTextMuted}
+            />
+            <Text style={[styles.label, isActive && styles.activeLabel]}>{tab.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
