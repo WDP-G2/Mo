@@ -4,12 +4,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AuthDivider from '../../components/auth/AuthDivider';
 import AuthInput from '../../components/auth/AuthInput';
@@ -22,7 +22,7 @@ import { colors, spacing } from '../../constants/theme';
 
 export default function LoginScreen({ onLogin, onNavigateRegister }) {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -54,7 +54,7 @@ export default function LoginScreen({ onLogin, onNavigateRegister }) {
               <AuthInput
                 containerStyle={styles.passwordInput}
                 icon={<Ionicons name="lock-closed-outline" size={20} color={colors.inputIcon} />}
-                label={'M\u1eacT KH\u1ea8U'}
+                label="MẬT KHẨU"
                 placeholder={'Nh\u1eadp m\u1eadt kh\u1ea9u'}
                 rightIcon={
                   <Pressable hitSlop={10}>
@@ -99,16 +99,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingHorizontal: spacing.screenX,
-    paddingTop: 43,
-    paddingBottom: 34,
+    paddingTop: 24,
+    paddingBottom: 20,
   },
   card: {
     alignItems: 'stretch',
   },
   title: {
-    marginTop: 20,
+    marginTop: 10,
     color: colors.text,
     fontSize: 25,
     fontWeight: '800',
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    marginTop: 12,
+    marginTop: 8,
     color: colors.textMuted,
     fontSize: 13,
     fontWeight: '500',
@@ -124,22 +124,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   form: {
-    marginTop: 25,
+    marginTop: 16,
   },
   passwordInput: {
-    marginTop: 17,
+    marginTop: 12,
   },
   socialRow: {
     flexDirection: 'row',
     gap: 13,
-    marginTop: 39,
+    marginTop: 20,
   },
   footer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 42,
+    paddingTop: 20,
   },
   signupText: {
     color: '#7A89A3',
