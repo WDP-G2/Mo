@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,8 +20,44 @@ import PrimaryButton from '../../components/auth/PrimaryButton';
 import RegisterBrandHeader from '../../components/auth/RegisterBrandHeader';
 import SocialButton from '../../components/auth/SocialButton';
 import { colors } from '../../constants/theme';
+import { authService } from '../../services/authService';
 
 export default function RegisterScreen({ onNavigateLogin }) {
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleRegister() {
+    if (!fullName.trim() || !email.trim() || !password) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ họ tên, email và mật khẩu.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Mật khẩu chưa khớp', 'Vui lòng kiểm tra lại mật khẩu xác nhận.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await authService.register({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password,
+      });
+      Alert.alert('Đăng ký thành công', 'Bạn có thể đăng nhập bằng tài khoản vừa tạo.');
+      onNavigateLogin();
+    } catch (error) {
+      Alert.alert('Đăng ký thất bại', error.message || 'Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
@@ -44,7 +82,9 @@ export default function RegisterScreen({ onNavigateLogin }) {
               <AuthInput
                 icon={<Ionicons name="person-outline" size={19} color={colors.darkTextMuted} />}
                 label={'H\u1ecc V\u00c0 T\u00caN'}
+                onChangeText={setFullName}
                 placeholder={'Nguy\u1ec5n V\u0103n A'}
+                value={fullName}
                 variant="dark"
               />
 
@@ -54,7 +94,9 @@ export default function RegisterScreen({ onNavigateLogin }) {
                 icon={<Ionicons name="mail-outline" size={19} color={colors.darkTextMuted} />}
                 keyboardType="email-address"
                 label="EMAIL"
+                onChangeText={setEmail}
                 placeholder="email@example.com"
+                value={email}
                 variant="dark"
               />
 
@@ -62,13 +104,19 @@ export default function RegisterScreen({ onNavigateLogin }) {
                 containerStyle={styles.inputGap}
                 icon={<Ionicons name="lock-closed-outline" size={19} color={colors.darkTextMuted} />}
                 label="MẬT KHẨU"
+                onChangeText={setPassword}
                 placeholder={'T\u1ed1i thi\u1ec3u 8 k\u00fd t\u1ef1'}
                 rightIcon={
-                  <Pressable hitSlop={10}>
-                    <Ionicons name="eye-outline" size={19} color={colors.darkTextMuted} />
+                  <Pressable hitSlop={10} onPress={() => setShowPassword((current) => !current)}>
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={19}
+                      color={colors.darkTextMuted}
+                    />
                   </Pressable>
                 }
-                secureTextEntry
+                secureTextEntry={!showPassword}
+                value={password}
                 variant="dark"
               />
 
@@ -76,13 +124,22 @@ export default function RegisterScreen({ onNavigateLogin }) {
                 containerStyle={styles.inputGap}
                 icon={<Ionicons name="lock-closed-outline" size={19} color={colors.darkTextMuted} />}
                 label="XÁC NHẬN MẬT KHẨU"
+                onChangeText={setConfirmPassword}
                 placeholder={'Nh\u1eadp l\u1ea1i m\u1eadt kh\u1ea9u'}
                 rightIcon={
-                  <Pressable hitSlop={10}>
-                    <Ionicons name="eye-outline" size={19} color={colors.darkTextMuted} />
+                  <Pressable
+                    hitSlop={10}
+                    onPress={() => setShowConfirmPassword((current) => !current)}
+                  >
+                    <Ionicons
+                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={19}
+                      color={colors.darkTextMuted}
+                    />
                   </Pressable>
                 }
-                secureTextEntry
+                secureTextEntry={!showConfirmPassword}
+                value={confirmPassword}
                 variant="dark"
               />
 
@@ -90,7 +147,13 @@ export default function RegisterScreen({ onNavigateLogin }) {
                 {'T\u00e0i kho\u1ea3n s\u1ebd \u0111\u01b0\u1ee3c qu\u1ea3n tr\u1ecb vi\u00ean x\u00e1c minh v\u00e0 c\u1ea5p quy\u1ec1n ph\u00f9 h\u1ee3p'}
               </AuthNotice>
 
-              <PrimaryButton title={'\u0110\u0103ng k\u00fd'} textColor="#201A05" />
+              <PrimaryButton
+                disabled={!fullName.trim() || !email.trim() || !password || !confirmPassword}
+                loading={loading}
+                onPress={handleRegister}
+                title={'\u0110\u0103ng k\u00fd'}
+                textColor="#201A05"
+              />
             </View>
 
             <AuthDivider label={'Ho\u1eb7c \u0111\u0103ng k\u00fd v\u1edbi'} variant="dark" />

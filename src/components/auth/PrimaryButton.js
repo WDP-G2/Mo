@@ -1,11 +1,25 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
 import { colors, radii } from '../../constants/theme';
 
-export default function PrimaryButton({ title, onPress, textColor = colors.white }) {
+export default function PrimaryButton({
+  title,
+  onPress,
+  textColor = colors.white,
+  disabled = false,
+  loading = false,
+}) {
   return (
-    <Pressable style={styles.button} onPress={onPress}>
-      <Text style={[styles.buttonText, { color: textColor }]}>{title}</Text>
+    <Pressable
+      disabled={disabled || loading}
+      style={[styles.button, (disabled || loading) && styles.disabledButton]}
+      onPress={onPress}
+    >
+      {loading ? (
+        <ActivityIndicator color={textColor} />
+      ) : (
+        <Text style={[styles.buttonText, { color: textColor }]}>{title}</Text>
+      )}
     </Pressable>
   );
 }
@@ -26,6 +40,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 12,
     elevation: 4,
+  },
+  disabledButton: {
+    opacity: 0.65,
   },
   buttonText: {
     fontSize: 16,

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,8 +21,34 @@ import PrimaryButton from '../../components/auth/PrimaryButton';
 import RememberForgotRow from '../../components/auth/RememberForgotRow';
 import SocialButton from '../../components/auth/SocialButton';
 import { colors, spacing } from '../../constants/theme';
+import { authService } from '../../services/authService';
 
 export default function LoginScreen({ onLogin, onNavigateRegister }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin() {
+    if (!email.trim() || !password) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập email và mật khẩu.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const auth = await authService.login({
+        email: email.trim(),
+        password,
+      });
+      onLogin(auth);
+    } catch (error) {
+      Alert.alert('Đăng nhập thất bại', error.message || 'Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
@@ -48,24 +76,37 @@ export default function LoginScreen({ onLogin, onNavigateRegister }) {
                 icon={<Ionicons name="mail-outline" size={20} color={colors.inputIcon} />}
                 keyboardType="email-address"
                 label="EMAIL"
+                onChangeText={setEmail}
                 placeholder="example@racing.com"
+                value={email}
               />
 
               <AuthInput
                 containerStyle={styles.passwordInput}
                 icon={<Ionicons name="lock-closed-outline" size={20} color={colors.inputIcon} />}
                 label="MẬT KHẨU"
+                onChangeText={setPassword}
                 placeholder={'Nh\u1eadp m\u1eadt kh\u1ea9u'}
                 rightIcon={
-                  <Pressable hitSlop={10}>
-                    <Ionicons name="eye-outline" size={20} color={colors.inputIcon} />
+                  <Pressable hitSlop={10} onPress={() => setShowPassword((current) => !current)}>
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={colors.inputIcon}
+                    />
                   </Pressable>
                 }
-                secureTextEntry
+                secureTextEntry={!showPassword}
+                value={password}
               />
 
               <RememberForgotRow />
-              <PrimaryButton onPress={onLogin} title={'\u0110\u0103ng nh\u1eadp'} />
+              <PrimaryButton
+                disabled={!email.trim() || !password}
+                loading={loading}
+                onPress={handleLogin}
+                title={'\u0110\u0103ng nh\u1eadp'}
+              />
             </View>
 
             <AuthDivider />
