@@ -1,16 +1,12 @@
+import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import AdminHeader from '../../components/home/AdminHeader';
 import AdminPageTitle from '../../components/home/AdminPageTitle';
 import SearchBar from '../../components/home/SearchBar';
 import { colors } from '../../constants/theme';
-
-const users = [
-  { code: 'N', name: 'Nguy\u1ec5n V\u0103n A', contact: 'vana@hr.vn', role: 'Ch\u1ee7 ng\u1ef1a', status: '\u0110ang ho\u1ea1t \u0111\u1ed9ng', profile: '3 ng\u1ef1a \u00b7 12 gi\u1ea3i \u0111\u1ea5u' },
-  { code: 'T', name: 'Tr\u1ea7n Minh T\u00fa', contact: 'tu.tm@hr.vn', role: 'Jockey', status: '\u0110ang ho\u1ea1t \u0111\u1ed9ng', profile: '24 th\u00e1ng \u00b7 Win 78%' },
-  { code: 'P', name: 'Ph\u1ea1m Ho\u00e0ng', contact: 'hoang.p@hr.vn', role: 'Jockey', status: 'T\u1ea1m kh\u00f3a', profile: '12 th\u00e1ng \u00b7 Win 65%' },
-];
+import { userService } from '../../services/userService';
 
 const requests = [
   { id: 'REQ-2026-014', name: '\u0110\u1eb7ng Quang Huy', from: 'Kh\u00e1n gi\u1ea3', to: 'Jockey', files: '4 file', status: 'Ch\u1edd duy\u1ec7t' },
@@ -18,6 +14,30 @@ const requests = [
 ];
 
 export default function UserManagementScreen() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+
+    userService
+      .list()
+      .then((items) => {
+        if (alive) setUsers(items);
+      })
+      .catch((requestError) => {
+        if (alive) setError(requestError.message || 'Không tải được người dùng.');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AdminHeader subtitle="User Management" />
@@ -35,7 +55,7 @@ export default function UserManagementScreen() {
       <View style={styles.segmentRow}>
         <View style={styles.segmentActive}>
           <Text style={styles.segmentActiveText}>{'Danh s\u00e1ch ng\u01b0\u1eddi d\u00f9ng'}</Text>
-          <Text style={styles.badge}>9</Text>
+          <Text style={styles.badge}>{users.length}</Text>
         </View>
         <View style={styles.segment}>
           <Text style={styles.segmentText}>{'Y\u00eau c\u1ea7u c\u1ea5p quy\u1ec1n'}</Text>
@@ -52,8 +72,13 @@ export default function UserManagementScreen() {
             <Text style={styles.filterText}>{'T\u1ea5t c\u1ea3'}</Text>
           </View>
         </View>
+        {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
+        {!loading && error ? <Text style={styles.emptyText}>{error}</Text> : null}
+        {!loading && !error && users.length === 0 ? (
+          <Text style={styles.emptyText}>{'Chưa có người dùng.'}</Text>
+        ) : null}
         {users.map((user) => (
-          <UserRow key={user.contact} user={user} />
+          <UserRow key={user.id} user={user} />
         ))}
       </View>
 
@@ -83,8 +108,8 @@ function UserRow({ user }) {
       </View>
       <View style={styles.userInfo}>
         <Text style={styles.userName}>{user.name}</Text>
-        <Text style={styles.userMeta}>{user.contact}</Text>
-        <Text style={styles.userMeta}>{user.profile}</Text>
+        <Text style={styles.userMeta}>{user.email || user.phone || 'Chưa cập nhật liên hệ'}</Text>
+        <Text style={styles.userMeta}>{user.phone || 'Chưa cập nhật số điện thoại'}</Text>
       </View>
       <View style={styles.rolePill}>
         <Text style={styles.roleText}>{user.role}</Text>
@@ -187,6 +212,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.darkSurface,
     overflow: 'hidden',
+  },
+  loader: {
+    paddingVertical: 18,
+  },
+  emptyText: {
+    padding: 16,
+    color: colors.darkTextMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   filterRow: {
     padding: 12,

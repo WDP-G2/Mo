@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import AdminHeader from '../../components/home/AdminHeader';
 import HomeSectionHeader from '../../components/home/HomeSectionHeader';
 import SearchBar from '../../components/home/SearchBar';
 import { colors } from '../../constants/theme';
+import { tournamentService } from '../../services/tournamentService';
 
 const actions = [
   { icon: 'add-circle-outline', title: 'T\u1ea1o gi\u1ea3i \u0111\u1ea5u', desc: 'L\u1eadp th\u00f4ng tin m\u00f9a gi\u1ea3i m\u1edbi' },
@@ -13,13 +15,31 @@ const actions = [
   { icon: 'shield-checkmark-outline', title: 'Ph\u00e2n c\u00f4ng tr\u1ecdng t\u00e0i', desc: 'G\u00e1n referee cho t\u1eebng cu\u1ed9c \u0111ua' },
 ];
 
-const tournaments = [
-  { name: 'Grand Prix Championship 2024', status: 'M\u1edf \u0111\u0103ng k\u00fd', races: 18, pending: 12 },
-  { name: 'Autumn Derby Series', status: 'S\u1eafp di\u1ec5n ra', races: 10, pending: 4 },
-  { name: 'National Horse Cup', status: 'Ch\u1edd c\u00f4ng b\u1ed1', races: 8, pending: 2 },
-];
-
 export default function TournamentAdminScreen() {
+  const [tournaments, setTournaments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+
+    tournamentService
+      .list()
+      .then((items) => {
+        if (alive) setTournaments(items);
+      })
+      .catch((requestError) => {
+        if (alive) setError(requestError.message || 'Không tải được giải đấu.');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AdminHeader subtitle="Tournament Admin" />
@@ -38,24 +58,31 @@ export default function TournamentAdminScreen() {
 
       <HomeSectionHeader title={'Danh s\u00e1ch gi\u1ea3i \u0111\u1ea5u'} action={'T\u1ea1o m\u1edbi'} />
       <View style={styles.list}>
+        {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
+        {!loading && error ? <Text style={styles.emptyText}>{error}</Text> : null}
+        {!loading && !error && tournaments.length === 0 ? (
+          <Text style={styles.emptyText}>{'Chưa có giải đấu.'}</Text>
+        ) : null}
         {tournaments.map((item) => (
-          <View key={item.name} style={styles.tournamentCard}>
+          <View key={item.id} style={styles.tournamentCard}>
             <View style={styles.cardTop}>
               <View style={styles.iconBox}>
                 <Ionicons name="trophy-outline" size={20} color={colors.primary} />
               </View>
               <View style={styles.tournamentInfo}>
                 <Text style={styles.tournamentName}>{item.name}</Text>
-                <Text style={styles.tournamentStatus}>{item.status}</Text>
+                <Text style={styles.tournamentStatus}>
+                  {item.status} · {item.dateLabel}
+                </Text>
               </View>
             </View>
             <View style={styles.metaRow}>
               <View style={styles.metaBox}>
-                <Text style={styles.metaValue}>{item.races}</Text>
+                <Text style={styles.metaValue}>{item.raceCount}</Text>
                 <Text style={styles.metaLabel}>{'Cu\u1ed9c \u0111ua'}</Text>
               </View>
               <View style={styles.metaBox}>
-                <Text style={styles.metaValue}>{item.pending}</Text>
+                <Text style={styles.metaValue}>{item.pendingCount}</Text>
                 <Text style={styles.metaLabel}>{'Ch\u1edd duy\u1ec7t'}</Text>
               </View>
               <View style={styles.manageButton}>
@@ -105,6 +132,15 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 12,
+  },
+  loader: {
+    paddingVertical: 18,
+  },
+  emptyText: {
+    color: colors.darkTextMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   tournamentCard: {
     borderWidth: 1,

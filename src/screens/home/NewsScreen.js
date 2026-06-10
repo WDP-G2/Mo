@@ -1,22 +1,53 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import AdminHeader from '../../components/home/AdminHeader';
 import AdminPageTitle from '../../components/home/AdminPageTitle';
 import SearchBar from '../../components/home/SearchBar';
 import { colors } from '../../constants/theme';
+import { newsService } from '../../services/newsService';
 
-const newsImage =
-  'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=500&q=80';
+function formatDate(value) {
+  if (!value) return 'Chưa cập nhật';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Chưa cập nhật';
+  return date.toLocaleDateString('vi-VN');
+}
 
-const posts = [
-  { title: 'Thunder Strike Gi\u00e0nh Chi\u1ebfn Th\u1eafng T\u1ea1i Vietnam Grand Prix...', category: 'K\u1ebft qu\u1ea3 \u0111ua', date: '20/05/2026', status: '\u0110\u00e3 xu\u1ea5t b\u1ea3n', featured: true },
-  { title: 'Championship Cup 2026: S\u1eb5n S\u00e0ng Cho M\u00f9a Gi\u1ea3i M\u1edbi', category: 'S\u1ef1 ki\u1ec7n', date: '19/05/2026', status: '\u0110\u00e3 xu\u1ea5t b\u1ea3n', featured: true },
-  { title: 'Golden Flash: H\u00e0nh Tr\u00ecnh T\u1eeb Ng\u1ef1a Non \u0110\u1ebfn Nh\u00e0 V\u00f4 \u0110\u1ecbch', category: 'Ch\u00e2n dung', date: '18/05/2026', status: '\u0110\u00e3 xu\u1ea5t b\u1ea3n', featured: false },
-  { title: 'C\u00f4ng Ngh\u1ec7 AI Trong Hu\u1ea5n Luy\u1ec7n Ng\u1ef1a \u0110ua', category: 'C\u00f4ng ngh\u1ec7', date: '17/05/2026', status: 'B\u1ea3n nh\u00e1p', featured: false },
-];
+function toStatusLabel(status) {
+  return status === 'draft' ? 'Bản nháp' : 'Đã xuất bản';
+}
 
 export default function NewsScreen() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const publishedCount = useMemo(
+    () => posts.filter((post) => post.status !== 'draft').length,
+    [posts],
+  );
+
+  useEffect(() => {
+    let alive = true;
+
+    newsService
+      .list({ admin: true })
+      .then((items) => {
+        if (alive) setPosts(items);
+      })
+      .catch((requestError) => {
+        if (alive) setError(requestError.message || 'Không tải được tin tức.');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AdminHeader subtitle="News Management" />
@@ -39,10 +70,19 @@ export default function NewsScreen() {
         </View>
       </View>
 
+      <Text style={styles.summaryText}>
+        {publishedCount}/{posts.length} bài viết đang xuất bản
+      </Text>
+
       <View style={styles.table}>
+        {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
+        {!loading && error ? <Text style={styles.emptyText}>{error}</Text> : null}
+        {!loading && !error && posts.length === 0 ? (
+          <Text style={styles.emptyText}>{'Chưa có bài viết.'}</Text>
+        ) : null}
         {posts.map((post) => (
-          <View key={post.title} style={styles.postRow}>
-            <Image source={{ uri: newsImage }} style={styles.postImage} />
+          <View key={post.id} style={styles.postRow}>
+            <Image source={{ uri: post.imageUrl }} style={styles.postImage} />
             <View style={styles.postMain}>
               <Text style={styles.postTitle}>{post.title}</Text>
               {post.featured ? (
@@ -50,14 +90,16 @@ export default function NewsScreen() {
                   <Text style={styles.featuredText}>{'N\u1ed5i b\u1eadt'}</Text>
                 </View>
               ) : null}
-              <Text style={styles.postDate}>{post.date}</Text>
+              <Text style={styles.postDate}>{formatDate(post.publishedAt)}</Text>
             </View>
             <View style={styles.side}>
               <View style={styles.categoryPill}>
                 <Text style={styles.categoryText}>{post.category}</Text>
               </View>
-              <View style={[styles.publishPill, post.status !== '\u0110\u00e3 xu\u1ea5t b\u1ea3n' && styles.draftPill]}>
-                <Text style={[styles.publishText, post.status !== '\u0110\u00e3 xu\u1ea5t b\u1ea3n' && styles.draftText]}>{post.status}</Text>
+              <View style={[styles.publishPill, post.status === 'draft' && styles.draftPill]}>
+                <Text style={[styles.publishText, post.status === 'draft' && styles.draftText]}>
+                  {toStatusLabel(post.status)}
+                </Text>
               </View>
             </View>
           </View>
@@ -120,6 +162,22 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.darkSurface,
     overflow: 'hidden',
+  },
+  summaryText: {
+    marginTop: 14,
+    color: colors.darkTextMuted,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  loader: {
+    paddingVertical: 24,
+  },
+  emptyText: {
+    padding: 16,
+    color: colors.darkTextMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   postRow: {
     flexDirection: 'row',
