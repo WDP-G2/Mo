@@ -1,6 +1,6 @@
 # Mo - Horse Racing Tournament Mobile App
 
-Mo la ung dung mobile Expo + React Native cho he thong quan ly giai dau dua ngua. Ung dung ho tro nhieu vai tro tham gia trong quy trinh to chuc giai dau: Horse Owner, Jockey, Race Referee, Spectator va Admin.
+Mo la ung dung mobile Expo + React Native cho he thong quan ly giai dau dua ngua. Ung dung mobile tap trung cho cac vai tro tham gia: Horse Owner, Jockey, Race Referee va Spectator. Vai tro Admin su dung FE admin rieng.
 
 ## Tech Stack
 
@@ -41,13 +41,12 @@ exp://192.168.10.134:8081
 
 ## Product Scope
 
-He thong tap trung vao 5 nhom nguoi dung chinh:
+He thong mobile tap trung vao 4 nhom nguoi dung chinh:
 
 - Horse Owner: dang ky tai khoan, quan ly ngua, dang ky giai dau, thue/chon jockey, xac nhan tham gia cuoc dua va theo doi ket qua.
 - Jockey: dang ky tai khoan jockey, nhan loi moi dieu khien ngua, xac nhan/tu choi cuoc dua, xem lich thi dau va thanh tich ca nhan.
 - Race Referee: kiem tra thong tin ngua, theo doi cuoc dua, ghi nhan vi pham, xac nhan ket qua va lap bien ban thi dau.
 - Spectator: xem thong tin giai, lich dua, ket qua truc tiep, bang xep hang, du doan ket qua va nhan thong bao thuong.
-- Admin: quan ly nguoi dung, phan quyen, giai dau, lich thi dau, dang ky tham gia, ngua, jockey, trong tai, ket qua va du doan.
 
 ## Functional Requirements
 
