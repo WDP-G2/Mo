@@ -17,6 +17,16 @@ npm.cmd install
 npm.cmd run start -- --host lan --port 8081
 ```
 
+## API Configuration
+
+Tao file `.env` tu `.env.example` va cau hinh backend API:
+
+```text
+EXPO_PUBLIC_API_BASE_URL=http://localhost:3000
+```
+
+Khi chay tren dien thoai that, dung IP LAN cua may chay BE thay cho `localhost`.
+
 Mo ung dung tren may that bang Expo Go:
 
 ```text
