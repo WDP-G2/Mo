@@ -1,76 +1,30 @@
-import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import HomeBottomTabs from '../../components/home/HomeBottomTabs';
 import { colors } from '../../constants/theme';
-import AdminAccountScreen from './AdminAccountScreen';
-import AdminDashboardScreen from './AdminDashboardScreen';
-import AdminMoreScreen from './AdminMoreScreen';
-import NewsScreen from './NewsScreen';
-import NotificationsScreen from './NotificationsScreen';
-import SettingsScreen from './SettingsScreen';
-import StatisticsScreen from './StatisticsScreen';
-import TournamentAdminScreen from './TournamentAdminScreen';
-import UserManagementScreen from './UserManagementScreen';
+import RoleHomeScreen from '../role/RoleHomeScreen';
+import { isAdminRole } from '../../utils/role';
 
 export default function HomeScreen({ user, onLogout }) {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  if (!isAdminRole(user?.role)) {
+    return <RoleHomeScreen user={user} onLogout={onLogout} />;
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      <View style={styles.app}>
-        <View style={styles.scene}>{renderScene(activeTab, setActiveTab, user, onLogout)}</View>
-        <HomeBottomTabs activeTab={getBottomTab(activeTab)} onTabPress={setActiveTab} />
+      <View style={styles.unsupported}>
+        <Text style={styles.title}>Admin không dùng mobile</Text>
+        <Text style={styles.subtitle}>
+          Mobile dành cho Horse Owner, Jockey, Referee và Spectator. Vui lòng dùng FE admin.
+        </Text>
+        <Pressable style={styles.logoutButton} onPress={onLogout}>
+          <Text style={styles.logoutText}>Đăng xuất</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
-}
-
-function getBottomTab(activeTab) {
-  if (['statistics', 'notifications', 'settings', 'account'].includes(activeTab)) {
-    return 'more';
-  }
-
-  return activeTab;
-}
-
-function renderScene(activeTab, setActiveTab, user, onLogout) {
-  if (activeTab === 'tournaments') {
-    return <TournamentAdminScreen />;
-  }
-
-  if (activeTab === 'news') {
-    return <NewsScreen />;
-  }
-
-  if (activeTab === 'users') {
-    return <UserManagementScreen />;
-  }
-
-  if (activeTab === 'statistics') {
-    return <StatisticsScreen />;
-  }
-
-  if (activeTab === 'notifications') {
-    return <NotificationsScreen />;
-  }
-
-  if (activeTab === 'settings') {
-    return <SettingsScreen />;
-  }
-
-  if (activeTab === 'account') {
-    return <AdminAccountScreen user={user} onLogout={onLogout} />;
-  }
-
-  if (activeTab === 'more') {
-    return <AdminMoreScreen onOpenModule={setActiveTab} />;
-  }
-
-  return <AdminDashboardScreen />;
 }
 
 const styles = StyleSheet.create({
@@ -78,11 +32,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.darkBackground,
   },
-  app: {
+  unsupported: {
     flex: 1,
-    backgroundColor: colors.darkBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  scene: {
-    flex: 1,
+  title: {
+    color: colors.darkText,
+    fontSize: 22,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  subtitle: {
+    marginTop: 10,
+    color: colors.darkTextMuted,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  logoutButton: {
+    marginTop: 20,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+  },
+  logoutText: {
+    color: '#1D1705',
+    fontSize: 13,
+    fontWeight: '900',
   },
 });
