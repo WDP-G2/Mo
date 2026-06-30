@@ -23,10 +23,18 @@ function buildUrl(path, params) {
 
 async function parseResponse(response) {
   const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  let body = null;
+
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = { error: text };
+    }
+  }
 
   if (!response.ok) {
-    const message = body?.message || body?.error || 'Request failed';
+    const message = body?.message || body?.error || `Request failed (${response.status})`;
     throw new Error(message);
   }
 
@@ -53,4 +61,3 @@ export async function apiRequest(path, options = {}) {
 
   return parseResponse(response);
 }
-
