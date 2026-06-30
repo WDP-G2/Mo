@@ -19,3 +19,17 @@ export function isAdminRole(role) {
   return normalizeRole(role) === 'ADMIN';
 }
 
+export function isMobileRole(role) {
+  const normalizedRole = normalizeRole(role);
+  return ['OWNER', 'JOCKEY', 'REFEREE', 'SPECTATOR', 'USER'].includes(normalizedRole);
+}
+
+export function getRoleLabel(role) {
+  const normalizedRole = normalizeRole(role);
+  if (normalizedRole === 'OWNER') return 'Horse Owner';
+  if (normalizedRole === 'JOCKEY') return 'Jockey';
+  if (normalizedRole === 'REFEREE') return 'Referee';
+  if (normalizedRole === 'SPECTATOR') return 'Spectator';
+  if (normalizedRole === 'ADMIN') return 'Admin';
+  return 'Spectator';
+}

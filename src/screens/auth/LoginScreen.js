@@ -22,7 +22,7 @@ import RememberForgotRow from '../../components/auth/RememberForgotRow';
 import SocialButton from '../../components/auth/SocialButton';
 import { colors, spacing } from '../../constants/theme';
 import { authService } from '../../services/authService';
-import { isAdminRole } from '../../utils/role';
+import { isAdminRole, isMobileRole } from '../../utils/role';
 
 export default function LoginScreen({ onLogin, onNavigateRegister }) {
   const [email, setEmail] = useState('');
@@ -43,10 +43,18 @@ export default function LoginScreen({ onLogin, onNavigateRegister }) {
         password,
       });
 
-      if (!isAdminRole(auth?.user?.role)) {
+      if (isAdminRole(auth?.user?.role)) {
         Alert.alert(
-          'Không có quyền truy cập',
-          'Ứng dụng mobile hiện dành cho tài khoản quản trị viên.',
+          'Tài khoản admin',
+          'Mobile dành cho Horse Owner, Jockey, Referee và Spectator. Vui lòng dùng FE admin cho tài khoản quản trị.',
+        );
+        return;
+      }
+
+      if (!isMobileRole(auth?.user?.role)) {
+        Alert.alert(
+          'Role chưa hỗ trợ',
+          'Mobile hiện hỗ trợ Horse Owner, Jockey, Referee và Spectator.',
         );
         return;
       }
