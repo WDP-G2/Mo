@@ -14,5 +14,7 @@ export const ENDPOINTS = {
   news: {
     list: '/news',
   },
+  horses: {
+    list: '/horses',
+  },
 };
-
