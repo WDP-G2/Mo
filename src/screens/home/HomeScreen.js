@@ -15,14 +15,14 @@ import StatisticsScreen from './StatisticsScreen';
 import TournamentAdminScreen from './TournamentAdminScreen';
 import UserManagementScreen from './UserManagementScreen';
 
-export default function HomeScreen() {
+export default function HomeScreen({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.app}>
-        <View style={styles.scene}>{renderScene(activeTab, setActiveTab)}</View>
+        <View style={styles.scene}>{renderScene(activeTab, setActiveTab, user, onLogout)}</View>
         <HomeBottomTabs activeTab={getBottomTab(activeTab)} onTabPress={setActiveTab} />
       </View>
     </SafeAreaView>
@@ -37,7 +37,7 @@ function getBottomTab(activeTab) {
   return activeTab;
 }
 
-function renderScene(activeTab, setActiveTab) {
+function renderScene(activeTab, setActiveTab, user, onLogout) {
   if (activeTab === 'tournaments') {
     return <TournamentAdminScreen />;
   }
@@ -63,7 +63,7 @@ function renderScene(activeTab, setActiveTab) {
   }
 
   if (activeTab === 'account') {
-    return <AdminAccountScreen />;
+    return <AdminAccountScreen user={user} onLogout={onLogout} />;
   }
 
   if (activeTab === 'more') {

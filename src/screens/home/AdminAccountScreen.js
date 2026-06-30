@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import AdminHeader from '../../components/home/AdminHeader';
 import HomeSectionHeader from '../../components/home/HomeSectionHeader';
@@ -12,20 +12,46 @@ const permissions = [
   'C\u00f4ng b\u1ed1 k\u1ebft qu\u1ea3 thi \u0111\u1ea5u',
 ];
 
-export default function AdminAccountScreen() {
+function getInitials(name) {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!parts.length) return 'U';
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+}
+
+function getRoleLabel(role) {
+  if (role === 'ADMIN') return 'System Admin';
+  if (role === 'JOCKEY') return 'Jockey';
+  if (role === 'OWNER') return 'Chủ ngựa';
+  if (role === 'REFEREE') return 'Trọng tài';
+  return 'Người dùng';
+}
+
+export default function AdminAccountScreen({ user, onLogout }) {
+  const displayName = user?.fullName || user?.name || user?.username || 'Người dùng';
+  const email = user?.email || 'Chưa cập nhật email';
+  const role = user?.role || 'USER';
+
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AdminHeader subtitle="Admin Profile" />
 
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>AD</Text>
+          <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
         </View>
-        <Text style={styles.name}>Admin Championship</Text>
-        <Text style={styles.email}>admin@racing.com</Text>
+        <Text style={styles.name}>{displayName}</Text>
+        <Text style={styles.email}>{email}</Text>
         <View style={styles.rolePill}>
           <Ionicons name="shield-checkmark-outline" size={15} color="#1D1705" />
-          <Text style={styles.roleText}>System Admin</Text>
+          <Text style={styles.roleText}>{getRoleLabel(role)}</Text>
         </View>
       </View>
 
@@ -44,6 +70,10 @@ export default function AdminAccountScreen() {
         <SettingItem icon="notifications-outline" title={'Th\u00f4ng b\u00e1o h\u1ec7 th\u1ed1ng'} value="B\u1eadt" />
         <SettingItem icon="lock-closed-outline" title={'B\u1ea3o m\u1eadt t\u00e0i kho\u1ea3n'} value="2FA" />
         <SettingItem icon="language-outline" title={'Ng\u00f4n ng\u1eef'} value="Ti\u1ebfng Vi\u1ec7t" />
+        <Pressable style={styles.logoutButton} onPress={onLogout}>
+          <Ionicons name="log-out-outline" size={18} color="#1D1705" />
+          <Text style={styles.logoutText}>{'Đăng xuất'}</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -166,6 +196,20 @@ const styles = StyleSheet.create({
   settingValue: {
     color: colors.primary,
     fontSize: 11,
+    fontWeight: '900',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+  },
+  logoutText: {
+    color: '#1D1705',
+    fontSize: 13,
     fontWeight: '900',
   },
 });
