@@ -22,6 +22,7 @@ import RememberForgotRow from '../../components/auth/RememberForgotRow';
 import SocialButton from '../../components/auth/SocialButton';
 import { colors, spacing } from '../../constants/theme';
 import { authService } from '../../services/authService';
+import { isAdminRole } from '../../utils/role';
 
 export default function LoginScreen({ onLogin, onNavigateRegister }) {
   const [email, setEmail] = useState('');
@@ -41,6 +42,15 @@ export default function LoginScreen({ onLogin, onNavigateRegister }) {
         email: email.trim(),
         password,
       });
+
+      if (!isAdminRole(auth?.user?.role)) {
+        Alert.alert(
+          'Không có quyền truy cập',
+          'Ứng dụng mobile hiện dành cho tài khoản quản trị viên.',
+        );
+        return;
+      }
+
       onLogin(auth);
     } catch (error) {
       Alert.alert('Đăng nhập thất bại', error.message || 'Vui lòng thử lại.');

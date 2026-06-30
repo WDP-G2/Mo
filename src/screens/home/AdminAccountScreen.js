@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AdminHeader from '../../components/home/AdminHeader';
 import HomeSectionHeader from '../../components/home/HomeSectionHeader';
 import { colors } from '../../constants/theme';
+import { normalizeRole } from '../../utils/role';
 
 const permissions = [
   'Qu\u1ea3n l\u00fd t\u00e0i kho\u1ea3n ng\u01b0\u1eddi d\u00f9ng',
@@ -27,10 +28,11 @@ function getInitials(name) {
 }
 
 function getRoleLabel(role) {
-  if (role === 'ADMIN') return 'System Admin';
-  if (role === 'JOCKEY') return 'Jockey';
-  if (role === 'OWNER') return 'Chủ ngựa';
-  if (role === 'REFEREE') return 'Trọng tài';
+  const normalizedRole = normalizeRole(role);
+  if (normalizedRole === 'ADMIN') return 'System Admin';
+  if (normalizedRole === 'JOCKEY') return 'Jockey';
+  if (normalizedRole === 'OWNER') return 'Chủ ngựa';
+  if (normalizedRole === 'REFEREE') return 'Trọng tài';
   return 'Người dùng';
 }
 
