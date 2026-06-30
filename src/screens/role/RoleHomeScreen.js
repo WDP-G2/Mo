@@ -114,6 +114,20 @@ export default function RoleHomeScreen({ user, onLogout }) {
 
   const stats = useMemo(() => buildStats(role, data), [data, role]);
 
+  async function handleInvitationResponse(id, action) {
+    try {
+      const updated = await invitationService.respond(id, action);
+      setData((current) => ({
+        ...current,
+        invitations: (current.invitations || []).map((item) =>
+          item.id === id ? { ...item, status: updated?.status || item.status } : item,
+        ),
+      }));
+    } catch (requestError) {
+      setError(requestError.message || 'Không cập nhật được lời mời.');
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.app}>
@@ -137,7 +151,9 @@ export default function RoleHomeScreen({ user, onLogout }) {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
             {activeTab === 'overview' ? <Overview role={role} stats={stats} data={data} /> : null}
             {activeTab === 'schedule' ? <Schedule role={role} data={data} /> : null}
-            {activeTab === 'tasks' ? <Tasks role={role} data={data} /> : null}
+            {activeTab === 'tasks' ? (
+              <Tasks role={role} data={data} onInvitationResponse={handleInvitationResponse} />
+            ) : null}
             {activeTab === 'account' ? <Account user={user} role={role} onLogout={onLogout} /> : null}
           </ScrollView>
         )}
@@ -283,7 +299,7 @@ function Schedule({ role, data }) {
   );
 }
 
-function Tasks({ role, data }) {
+function Tasks({ role, data, onInvitationResponse }) {
   if (role === 'OWNER') {
     return (
       <Section title="Lời mời jockey đã gửi">
@@ -305,13 +321,30 @@ function Tasks({ role, data }) {
     return (
       <Section title="Lời mời điều khiển ngựa">
         {(data.invitations || []).map((item) => (
-          <ListItem
-            key={item.id}
-            icon="mail-unread-outline"
-            title={item.horseName || 'Ngựa'}
-            meta={`${item.ownerName || 'Chủ ngựa'} · ${item.tournamentName || 'Giải đấu'}`}
-            badge={item.status}
-          />
+          <View key={item.id} style={styles.invitationItem}>
+            <ListItem
+              icon="mail-unread-outline"
+              title={item.horseName || 'Ngựa'}
+              meta={`${item.ownerName || 'Chủ ngựa'} · ${item.tournamentName || 'Giải đấu'}`}
+              badge={item.status}
+            />
+            {item.status === 'Chờ xử lý' ? (
+              <View style={styles.invitationActions}>
+                <Pressable
+                  style={styles.secondaryAction}
+                  onPress={() => onInvitationResponse(item.id, 'reject')}
+                >
+                  <Text style={styles.secondaryActionText}>Từ chối</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.primaryAction}
+                  onPress={() => onInvitationResponse(item.id, 'accept')}
+                >
+                  <Text style={styles.primaryActionText}>Nhận lời</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
         ))}
         {!data.invitations?.length ? <EmptyText text="Chưa có lời mời." /> : null}
       </Section>
@@ -506,6 +539,41 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1D2A40',
   },
+  invitationItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D2A40',
+  },
+  invitationActions: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 13,
+    paddingBottom: 13,
+  },
+  secondaryAction: {
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 12,
+    paddingVertical: 11,
+  },
+  secondaryActionText: {
+    color: colors.darkText,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  primaryAction: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    paddingVertical: 11,
+  },
+  primaryActionText: {
+    color: '#1D1705',
+    fontSize: 12,
+    fontWeight: '900',
+  },
   itemIcon: {
     width: 38,
     height: 38,
@@ -648,4 +716,3 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
 });
-
