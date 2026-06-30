@@ -12,6 +12,7 @@ import RaceCard from '../../components/home/RaceCard';
 import RankingCard from '../../components/home/RankingCard';
 import StatCard from '../../components/home/StatCard';
 import { colors } from '../../constants/theme';
+import { horseService } from '../../services/horseService';
 import { newsService } from '../../services/newsService';
 import { tournamentService } from '../../services/tournamentService';
 import { userService } from '../../services/userService';
@@ -25,17 +26,24 @@ export default function AdminDashboardScreen() {
   const [tournaments, setTournaments] = useState([]);
   const [news, setNews] = useState([]);
   const [users, setUsers] = useState([]);
+  const [horses, setHorses] = useState([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let alive = true;
 
-    Promise.all([tournamentService.list(), newsService.list(), userService.list()])
-      .then(([nextTournaments, nextNews, nextUsers]) => {
+    Promise.all([
+      tournamentService.list(),
+      newsService.list(),
+      userService.list(),
+      horseService.list(),
+    ])
+      .then(([nextTournaments, nextNews, nextUsers, nextHorses]) => {
         if (!alive) return;
         setTournaments(nextTournaments);
         setNews(nextNews);
         setUsers(nextUsers);
+        setHorses(nextHorses);
       })
       .catch((requestError) => {
         if (alive) setError(requestError.message || 'Không tải được dữ liệu tổng quan.');
@@ -65,12 +73,14 @@ export default function AdminDashboardScreen() {
       pendingCount,
       jockeyCount,
       userCount: users.length,
+      horseCount: horses.length,
     };
-  }, [tournaments, users]);
+  }, [horses, tournaments, users]);
 
   const upcoming = tournaments.slice(0, 2);
   const featuredNews = news.filter((item) => item.featured).slice(0, 2);
   const visibleNews = featuredNews.length ? featuredNews : news.slice(0, 2);
+  const topHorses = [...horses].sort((a, b) => b.wins - a.wins).slice(0, 3);
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -86,7 +96,7 @@ export default function AdminDashboardScreen() {
       </View>
       <View style={styles.metricGrid}>
         <AdminMetricCard icon="people-outline" label={'Ng\u01b0\u1eddi tham gia'} tone="green" trend="BE" value={String(stats.participantCount)} />
-        <AdminMetricCard icon="people-circle-outline" label={'Ng\u01b0\u1eddi d\u00f9ng'} tone="gold" trend="BE" value={String(stats.userCount)} />
+        <AdminMetricCard icon="footsteps-outline" label={'Ng\u1ef1a \u0111ua'} tone="gold" trend="BE" value={String(stats.horseCount)} />
       </View>
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
       <HeroCard />
@@ -118,15 +128,22 @@ export default function AdminDashboardScreen() {
 
       <HomeSectionHeader title={'B\u1ea3ng x\u1ebfp h\u1ea1ng'} />
       <View style={styles.panel}>
-        <RankingCard name="Thunderbolt" rank={1} rate="94% Win Rate" subtitle={'Ch\u1ee7 s\u1edf h\u1eefu: L\u00ea V\u0103n A'} />
-        <RankingCard name="Golden Stallion" rank={2} rate="88% Win Rate" subtitle={'Ch\u1ee7 s\u1edf h\u1eefu: Nguy\u1ec5n Kim'} />
-        <RankingCard name="Midnight Blue" rank={3} rate="82% Win Rate" subtitle={'Ch\u1ee7 s\u1edf h\u1eefu: Tr\u1ea7n H\u00e0'} />
+        {topHorses.map((horse, index) => (
+          <RankingCard
+            key={horse.id}
+            name={horse.name}
+            rank={index + 1}
+            rate={`${horse.wins} thắng`}
+            subtitle={`Chủ sở hữu: ${horse.ownerName}`}
+          />
+        ))}
+        {!topHorses.length ? <Text style={styles.panelEmptyText}>{'Chưa có dữ liệu ngựa.'}</Text> : null}
       </View>
 
       <HomeSectionHeader title={'Th\u1ed1ng k\u00ea h\u1ec7 th\u1ed1ng'} />
       <View style={styles.statsGrid}>
         <StatCard icon="trophy-outline" label={'GI\u1ea2I \u0110\u1ea4U'} value={String(stats.tournamentCount)} />
-        <StatCard icon="footsteps-outline" label={'NG\u01af\u1edcI THAM GIA'} value={String(stats.participantCount)} />
+        <StatCard icon="footsteps-outline" label={'NG\u1ef0A \u0110UA'} value={String(stats.horseCount)} />
       </View>
       <View style={styles.statsGrid}>
         <StatCard icon="flag-outline" label={'N\u00c0I NG\u1ef0A'} value={String(stats.jockeyCount)} />
@@ -178,6 +195,13 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: colors.darkSurface,
     paddingHorizontal: 13,
+  },
+  panelEmptyText: {
+    paddingVertical: 16,
+    color: colors.darkTextMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   todoPanel: {
     borderWidth: 1,

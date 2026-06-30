@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -6,21 +7,68 @@ import AdminMetricCard from '../../components/home/AdminMetricCard';
 import AdminPageTitle from '../../components/home/AdminPageTitle';
 import HomeSectionHeader from '../../components/home/HomeSectionHeader';
 import { colors } from '../../constants/theme';
+import { horseService } from '../../services/horseService';
+import { tournamentService } from '../../services/tournamentService';
+import { userService } from '../../services/userService';
 
-const bars = [
-  { label: 'VGP', value: 6 },
-  { label: 'SGD', value: 5 },
-  { label: 'HNC', value: 8 },
-  { label: 'SPC', value: 4 },
-];
-
-const horses = [
-  { rank: 1, name: 'Thunder Bolt', wins: 12, prize: '850.000.000 \u0111' },
-  { rank: 2, name: 'Black Pearl', wins: 9, prize: '620.000.000 \u0111' },
-  { rank: 3, name: 'Wind Runner', wins: 7, prize: '480.000.000 \u0111' },
-];
+function chartBottom(value, multiplier) {
+  return Math.min(150, 26 + value * multiplier);
+}
 
 export default function StatisticsScreen() {
+  const [tournaments, setTournaments] = useState([]);
+  const [horses, setHorses] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+
+    Promise.all([tournamentService.list(), horseService.list(), userService.list()])
+      .then(([nextTournaments, nextHorses, nextUsers]) => {
+        if (!alive) return;
+        setTournaments(nextTournaments);
+        setHorses(nextHorses);
+        setUsers(nextUsers);
+      })
+      .catch((requestError) => {
+        if (alive) setError(requestError.message || 'Không tải được thống kê.');
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    const raceCount = tournaments.reduce((total, item) => total + Number(item.raceCount || 0), 0);
+    const registrationCount = tournaments.reduce(
+      (total, item) => total + Number(item.registrationCount || 0),
+      0,
+    );
+    const activeHorses = horses.filter((horse) => horse.canRace).length;
+
+    return {
+      raceCount,
+      registrationCount,
+      activeHorses,
+      tournamentCount: tournaments.length,
+      userCount: users.length,
+    };
+  }, [horses, tournaments, users]);
+
+  const bars = tournaments.slice(0, 5).map((item) => ({
+    label: item.name
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 4)
+      .toUpperCase(),
+    value: Math.max(1, Number(item.raceCount || 0)),
+  }));
+  const topHorses = [...horses].sort((a, b) => b.wins - a.wins).slice(0, 5);
+  const maxBar = Math.max(...bars.map((item) => item.value), 1);
+
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AdminHeader subtitle="Analytics" />
@@ -31,30 +79,31 @@ export default function StatisticsScreen() {
       />
 
       <View style={styles.metricGrid}>
-        <AdminMetricCard icon="trophy-outline" label={'Gi\u1ea3i \u0111\u1ea5u'} tone="gold" trend="+12%" value="4" />
-        <AdminMetricCard icon="flag-outline" label={'Cu\u1ed9c \u0111ua'} tone="blue" trend="+8%" value="23" />
+        <AdminMetricCard icon="trophy-outline" label={'Gi\u1ea3i \u0111\u1ea5u'} tone="gold" trend="BE" value={String(stats.tournamentCount)} />
+        <AdminMetricCard icon="flag-outline" label={'Cu\u1ed9c \u0111ua'} tone="blue" trend="BE" value={String(stats.raceCount)} />
       </View>
       <View style={styles.metricGrid}>
-        <AdminMetricCard icon="people-outline" label={'\u0110\u0103ng k\u00fd'} tone="green" trend="+24%" value="160" />
-        <AdminMetricCard icon="cash-outline" label={'Doanh thu'} tone="gold" trend="+18%" value="200.000.000" />
+        <AdminMetricCard icon="people-outline" label={'\u0110\u0103ng k\u00fd'} tone="green" trend="BE" value={String(stats.registrationCount)} />
+        <AdminMetricCard icon="footsteps-outline" label={'Ng\u1ef1a s\u1eb5n s\u00e0ng'} tone="gold" trend="BE" value={String(stats.activeHorses)} />
       </View>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <View style={styles.chartCard}>
         <View style={styles.chartHeader}>
           <View>
-            <Text style={styles.chartTitle}>{'Doanh thu 6 th\u00e1ng'}</Text>
-            <Text style={styles.chartSubtitle}>{'\u0110\u01a1n v\u1ecb: tri\u1ec7u VN\u0110'}</Text>
+            <Text style={styles.chartTitle}>{'T\u1ed5ng quan h\u1ec7 th\u1ed1ng'}</Text>
+            <Text style={styles.chartSubtitle}>{'D\u1eef li\u1ec7u t\u1eeb BE theo gi\u1ea3i \u0111\u1ea5u v\u00e0 ng\u01b0\u1eddi d\u00f9ng'}</Text>
           </View>
           <View style={styles.growthPill}>
-            <Text style={styles.growthText}>+18% YoY</Text>
+            <Text style={styles.growthText}>{stats.userCount} người dùng</Text>
           </View>
         </View>
         <View style={styles.lineChart}>
-          <View style={[styles.linePoint, { left: '4%', bottom: 46 }]} />
-          <View style={[styles.linePoint, { left: '24%', bottom: 74 }]} />
-          <View style={[styles.linePoint, { left: '44%', bottom: 104 }]} />
-          <View style={[styles.linePoint, { left: '64%', bottom: 88 }]} />
-          <View style={[styles.linePoint, { left: '84%', bottom: 136 }]} />
+          <View style={[styles.linePoint, { left: '4%', bottom: chartBottom(stats.tournamentCount, 8) }]} />
+          <View style={[styles.linePoint, { left: '24%', bottom: chartBottom(stats.raceCount, 4) }]} />
+          <View style={[styles.linePoint, { left: '44%', bottom: chartBottom(stats.registrationCount, 1) }]} />
+          <View style={[styles.linePoint, { left: '64%', bottom: chartBottom(stats.activeHorses, 3) }]} />
+          <View style={[styles.linePoint, { left: '84%', bottom: chartBottom(stats.userCount, 2) }]} />
         </View>
       </View>
 
@@ -63,27 +112,29 @@ export default function StatisticsScreen() {
         <View style={styles.barRow}>
           {bars.map((item) => (
             <View key={item.label} style={styles.barItem}>
-              <View style={[styles.bar, { height: item.value * 20 }]} />
+              <View style={[styles.bar, { height: Math.max(16, (item.value / maxBar) * 145) }]} />
               <Text style={styles.barLabel}>{item.label}</Text>
             </View>
           ))}
+          {!bars.length ? <Text style={styles.emptyText}>{'Chưa có dữ liệu giải đấu.'}</Text> : null}
         </View>
       </View>
 
       <HomeSectionHeader title={'Top ng\u1ef1a th\u1eafng gi\u1ea3i'} />
       <View style={styles.table}>
-        {horses.map((item) => (
-          <View key={item.name} style={styles.tableRow}>
+        {topHorses.map((item, index) => (
+          <View key={item.id} style={styles.tableRow}>
             <View style={styles.rank}>
-              <Text style={styles.rankText}>{item.rank}</Text>
+              <Text style={styles.rankText}>{index + 1}</Text>
             </View>
             <View style={styles.tableName}>
               <Text style={styles.horseName}>{item.name}</Text>
               <Text style={styles.tableMeta}>{item.wins} {'tr\u1eadn th\u1eafng'}</Text>
             </View>
-            <Text style={styles.prize}>{item.prize}</Text>
+            <Text style={styles.prize}>{item.races} lượt đua</Text>
           </View>
         ))}
+        {!topHorses.length ? <Text style={styles.emptyText}>{'Chưa có dữ liệu ngựa.'}</Text> : null}
       </View>
     </ScrollView>
   );
@@ -218,5 +269,18 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 12,
     fontWeight: '900',
+  },
+  errorText: {
+    marginBottom: 12,
+    color: '#FDA4AF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptyText: {
+    padding: 16,
+    color: colors.darkTextMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
