@@ -23,5 +23,9 @@ export const horseService = {
     const list = await apiRequest(ENDPOINTS.horses.list, { params });
     return (Array.isArray(list) ? list : []).map(mapHorse).filter(Boolean);
   },
-};
 
+  async listMine() {
+    const list = await apiRequest(ENDPOINTS.horses.list, { params: { mine: true } });
+    return (Array.isArray(list) ? list : []).map(mapHorse).filter(Boolean);
+  },
+};

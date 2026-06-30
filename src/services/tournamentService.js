@@ -15,6 +15,36 @@ function toDateLabel(value) {
   });
 }
 
+function mapRegistration(item) {
+  if (!item) return null;
+
+  return {
+    id: String(item.id || item._id || ''),
+    tournamentId: item.tournamentId || '',
+    tournamentName: item.tournamentName || '',
+    tournamentStatus: item.tournamentStatus || '',
+    raceId: item.raceId || '',
+    raceName: item.raceName || '',
+    raceNumber: item.raceNumber || '',
+    raceStatus: item.raceStatus || '',
+    raceDate: item.raceDate || '',
+    raceTime: item.raceTime || '',
+    location: item.location || '',
+    horseId: item.horseId || '',
+    horseName: item.horseName || item.horse || '',
+    ownerName: item.ownerName || item.fullName || '',
+    jockeyId: item.jockeyId || '',
+    jockeyName: item.jockeyName || item.jockey || '',
+    status: item.status || item.approval || 'Chờ duyệt',
+    notes: item.notes || '',
+    registeredAt: item.registeredAt || '',
+    horseHealth: item.horseHealth || '',
+    horseWins: Number(item.horseWins || 0),
+    horseRaces: Number(item.horseRaces || 0),
+    horseImageUrl: item.horseImageUrl || '',
+  };
+}
+
 export function mapTournament(tournament) {
   if (!tournament) return null;
   const races = Array.isArray(tournament.races) ? tournament.races : [];
@@ -34,6 +64,7 @@ export function mapTournament(tournament) {
     raceCount: tournament.raceCount ?? races.length,
     registrationCount: tournament.registrationCount ?? registrations.length,
     pendingCount: registrations.filter((item) => item.status === 'Chờ duyệt').length,
+    openRaceCount: tournament.openRaceCount ?? 0,
   };
 }
 
@@ -42,5 +73,19 @@ export const tournamentService = {
     const list = await apiRequest(ENDPOINTS.tournaments.list, { params });
     return (Array.isArray(list) ? list : []).map(mapTournament).filter(Boolean);
   },
-};
 
+  async listOwnerOpen() {
+    const list = await apiRequest(ENDPOINTS.tournaments.ownerOpen);
+    return (Array.isArray(list) ? list : []).map(mapTournament).filter(Boolean);
+  },
+
+  async listOwnerRegistrations() {
+    const list = await apiRequest(ENDPOINTS.tournaments.ownerRegistrations);
+    return (Array.isArray(list) ? list : []).map(mapRegistration).filter(Boolean);
+  },
+
+  async listJockeyRegistrations() {
+    const list = await apiRequest(ENDPOINTS.tournaments.jockeyRegistrations);
+    return (Array.isArray(list) ? list : []).map(mapRegistration).filter(Boolean);
+  },
+};
