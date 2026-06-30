@@ -8,11 +8,6 @@ import SearchBar from '../../components/home/SearchBar';
 import { colors } from '../../constants/theme';
 import { userService } from '../../services/userService';
 
-const requests = [
-  { id: 'REQ-2026-014', name: '\u0110\u1eb7ng Quang Huy', from: 'Kh\u00e1n gi\u1ea3', to: 'Jockey', files: '4 file', status: 'Ch\u1edd duy\u1ec7t' },
-  { id: 'REQ-2026-013', name: 'V\u0169 \u0110\u1ee9c M\u1ea1nh', from: 'Kh\u00e1n gi\u1ea3', to: 'Ch\u1ee7 ng\u1ef1a', files: '3 file', status: 'Ch\u1edd duy\u1ec7t' },
-];
-
 export default function UserManagementScreen() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +54,7 @@ export default function UserManagementScreen() {
         </View>
         <View style={styles.segment}>
           <Text style={styles.segmentText}>{'Y\u00eau c\u1ea7u c\u1ea5p quy\u1ec1n'}</Text>
-          <Text style={styles.badgeMuted}>5</Text>
+          <Text style={styles.badgeMuted}>0</Text>
         </View>
       </View>
 
@@ -90,9 +85,9 @@ export default function UserManagementScreen() {
       </View>
 
       <View style={styles.panel}>
-        {requests.map((request) => (
-          <RequestRow key={request.id} request={request} />
-        ))}
+        <Text style={styles.emptyText}>
+          {'BE hiện chưa có endpoint yêu cầu cấp quyền. Danh sách sẽ hiển thị khi API được bổ sung.'}
+        </Text>
       </View>
     </ScrollView>
   );
@@ -116,22 +111,6 @@ function UserRow({ user }) {
       </View>
       <View style={[styles.statusPill, isLocked && styles.lockedPill]}>
         <Text style={[styles.statusText, isLocked && styles.lockedText]}>{user.status}</Text>
-      </View>
-    </View>
-  );
-}
-
-function RequestRow({ request }) {
-  return (
-    <View style={styles.requestRow}>
-      <Text style={styles.requestId}>{request.id}</Text>
-      <View style={styles.requestMain}>
-        <Text style={styles.userName}>{request.name}</Text>
-        <Text style={styles.userMeta}>{request.from} {'\u2192'} {request.to}</Text>
-        <Text style={styles.userMeta}>{request.files}</Text>
-      </View>
-      <View style={styles.pendingPill}>
-        <Text style={styles.pendingText}>{request.status}</Text>
       </View>
     </View>
   );
@@ -324,34 +303,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     lineHeight: 17,
-  },
-  requestRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1D2A40',
-  },
-  requestId: {
-    width: 68,
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  requestMain: {
-    flex: 1,
-  },
-  pendingPill: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  pendingText: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: '900',
   },
 });

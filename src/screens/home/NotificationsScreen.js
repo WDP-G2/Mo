@@ -1,17 +1,59 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import AdminHeader from '../../components/home/AdminHeader';
 import AdminPageTitle from '../../components/home/AdminPageTitle';
 import { colors } from '../../constants/theme';
-
-const history = [
-  { title: 'M\u1edf \u0111\u0103ng k\u00fd Vietnam Grand Prix 2026', channel: 'Email + Push', sent: '2 gi\u1edd tr\u01b0\u1edbc', count: 1248 },
-  { title: 'Nh\u1eafc check-in cu\u1ed9c \u0111ua R3', channel: 'SMS', sent: 'H\u00f4m qua', count: 86 },
-  { title: 'C\u00f4ng b\u1ed1 k\u1ebft qu\u1ea3 Hanoi Cup 2025', channel: 'Push', sent: '3 ng\u00e0y tr\u01b0\u1edbc', count: 2104 },
-];
+import { newsService } from '../../services/newsService';
+import { tournamentService } from '../../services/tournamentService';
 
 export default function NotificationsScreen() {
+  const [tournaments, setTournaments] = useState([]);
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+
+    Promise.all([tournamentService.list(), newsService.list()])
+      .then(([nextTournaments, nextNews]) => {
+        if (!alive) return;
+        setTournaments(nextTournaments);
+        setNews(nextNews);
+      })
+      .catch((requestError) => {
+        if (alive) setError(requestError.message || 'Không tải được dữ liệu thông báo.');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const suggestions = useMemo(() => {
+    const tournamentItems = tournaments.slice(0, 3).map((item) => ({
+      id: `tournament-${item.id}`,
+      title: item.name,
+      channel: 'Push + Email',
+      meta: item.status,
+      count: item.registrationCount,
+    }));
+    const newsItems = news.slice(0, 2).map((item) => ({
+      id: `news-${item.id}`,
+      title: item.title,
+      channel: 'Push',
+      meta: item.category,
+      count: item.featured ? 1 : 0,
+    }));
+
+    return [...tournamentItems, ...newsItems];
+  }, [news, tournaments]);
+
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AdminHeader subtitle="Notifications" />
@@ -54,12 +96,19 @@ export default function NotificationsScreen() {
       </View>
 
       <View style={styles.historyCard}>
-        <Text style={styles.historyTitle}>{'L\u1ecbch s\u1eed g\u1eedi'}</Text>
-        {history.map((item) => (
-          <View key={item.title} style={styles.historyItem}>
+        <Text style={styles.historyTitle}>{'Gợi ý từ dữ liệu hệ thống'}</Text>
+        {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
+        {!loading && error ? <Text style={styles.emptyText}>{error}</Text> : null}
+        {!loading && !error && suggestions.length === 0 ? (
+          <Text style={styles.emptyText}>
+            {'BE chưa có lịch sử gửi thông báo. Gợi ý sẽ xuất hiện khi có giải đấu hoặc tin tức.'}
+          </Text>
+        ) : null}
+        {suggestions.map((item) => (
+          <View key={item.id} style={styles.historyItem}>
             <View style={styles.historyInfo}>
               <Text style={styles.historyName}>{item.title}</Text>
-              <Text style={styles.historyMeta}>{item.channel} {'\u00b7'} {item.sent}</Text>
+              <Text style={styles.historyMeta}>{item.channel} {'\u00b7'} {item.meta}</Text>
             </View>
             <View style={styles.countPill}>
               <Text style={styles.countText}>{item.count}</Text>
@@ -234,6 +283,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     marginBottom: 12,
+  },
+  loader: {
+    paddingVertical: 18,
+  },
+  emptyText: {
+    paddingVertical: 12,
+    color: colors.darkTextMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   historyItem: {
     flexDirection: 'row',
