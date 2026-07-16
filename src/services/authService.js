@@ -14,6 +14,7 @@ export const authService = {
         fullName: payload.fullName,
         email: payload.email,
         password: payload.password,
+        role: payload.role,
       },
     });
   },
@@ -29,4 +30,3 @@ export const authService = {
     return apiRequest(ENDPOINTS.auth.me);
   },
 };
-

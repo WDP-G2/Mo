@@ -22,9 +22,17 @@ import SocialButton from '../../components/auth/SocialButton';
 import { colors } from '../../constants/theme';
 import { authService } from '../../services/authService';
 
+const roleOptions = [
+  { label: 'Horse Owner', value: 'OWNER', icon: 'footsteps-outline' },
+  { label: 'Jockey', value: 'JOCKEY', icon: 'ribbon-outline' },
+  { label: 'Referee', value: 'REFEREE', icon: 'shield-checkmark-outline' },
+  { label: 'Spectator', value: 'SPECTATOR', icon: 'eye-outline' },
+];
+
 export default function RegisterScreen({ onNavigateLogin }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState('OWNER');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -47,6 +55,7 @@ export default function RegisterScreen({ onNavigateLogin }) {
       await authService.register({
         fullName: fullName.trim(),
         email: email.trim(),
+        role,
         password,
       });
       Alert.alert('Đăng ký thành công', 'Bạn có thể đăng nhập bằng tài khoản vừa tạo.');
@@ -100,6 +109,31 @@ export default function RegisterScreen({ onNavigateLogin }) {
                 variant="dark"
               />
 
+              <View style={styles.roleBlock}>
+                <Text style={styles.roleLabel}>{'VAI TRÒ MOBILE'}</Text>
+                <View style={styles.roleGrid}>
+                  {roleOptions.map((option) => {
+                    const active = role === option.value;
+                    return (
+                      <Pressable
+                        key={option.value}
+                        style={[styles.roleOption, active && styles.roleOptionActive]}
+                        onPress={() => setRole(option.value)}
+                      >
+                        <Ionicons
+                          name={option.icon}
+                          size={18}
+                          color={active ? '#1D1705' : colors.darkTextMuted}
+                        />
+                        <Text style={[styles.roleText, active && styles.roleTextActive]}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
               <AuthInput
                 containerStyle={styles.inputGap}
                 icon={<Ionicons name="lock-closed-outline" size={19} color={colors.darkTextMuted} />}
@@ -144,7 +178,7 @@ export default function RegisterScreen({ onNavigateLogin }) {
               />
 
               <AuthNotice>
-                {'T\u00e0i kho\u1ea3n s\u1ebd \u0111\u01b0\u1ee3c qu\u1ea3n tr\u1ecb vi\u00ean x\u00e1c minh v\u00e0 c\u1ea5p quy\u1ec1n ph\u00f9 h\u1ee3p'}
+                {'Mobile hỗ trợ Horse Owner, Jockey, Referee và Spectator. Admin sử dụng FE riêng.'}
               </AuthNotice>
 
               <PrimaryButton
@@ -220,6 +254,46 @@ const styles = StyleSheet.create({
   },
   inputGap: {
     marginTop: 15,
+  },
+  roleBlock: {
+    marginTop: 15,
+  },
+  roleLabel: {
+    color: colors.logo,
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 8,
+    marginLeft: 3,
+  },
+  roleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  roleOption: {
+    width: '48%',
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 12,
+    backgroundColor: colors.darkSurface,
+    paddingHorizontal: 10,
+  },
+  roleOptionActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  roleText: {
+    flex: 1,
+    color: colors.darkTextMuted,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  roleTextActive: {
+    color: '#1D1705',
   },
   socialRow: {
     flexDirection: 'row',
