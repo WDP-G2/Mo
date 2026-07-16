@@ -6,6 +6,7 @@ export const ENDPOINTS = {
   },
   users: {
     list: '/users',
+    profile: '/users/me/profile',
     jockeyDirectory: '/users/jockeys/directory',
     byRole: (role) => `/users?role=${encodeURIComponent(role)}`,
   },
