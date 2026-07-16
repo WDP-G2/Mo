@@ -27,4 +27,12 @@ export const ENDPOINTS = {
     sent: '/invitations/sent',
     respond: (id) => `/invitations/${id}/respond`,
   },
+  referee: {
+    dashboard: '/referee/dashboard',
+    races: '/referee/races',
+    payments: '/referee/payments',
+    invitations: '/referee/invitations',
+    acceptInvitation: (id) => `/referee/invitations/${id}/accept`,
+    rejectInvitation: (id) => `/referee/invitations/${id}/reject`,
+  },
 };
