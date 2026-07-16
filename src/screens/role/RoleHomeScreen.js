@@ -100,6 +100,7 @@ async function loadDataForRole(role) {
 
 export default function RoleHomeScreen({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [query, setQuery] = useState('');
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -189,12 +190,16 @@ export default function RoleHomeScreen({ user, onLogout }) {
         ) : (
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            {activeTab === 'overview' ? <Overview role={role} stats={stats} data={data} /> : null}
-            {activeTab === 'schedule' ? <Schedule role={role} data={data} /> : null}
+            {activeTab !== 'account' ? <SearchBox query={query} onChangeQuery={setQuery} /> : null}
+            {activeTab === 'overview' ? (
+              <Overview role={role} stats={stats} data={data} query={query} />
+            ) : null}
+            {activeTab === 'schedule' ? <Schedule role={role} data={data} query={query} /> : null}
             {activeTab === 'tasks' ? (
               <Tasks
                 role={role}
                 data={data}
+                query={query}
                 onInvitationResponse={handleInvitationResponse}
                 onRefereeInvitationResponse={handleRefereeInvitationResponse}
               />
@@ -272,7 +277,15 @@ function buildStats(role, data) {
   ];
 }
 
-function Overview({ role, stats, data }) {
+function matchesQuery(item, query) {
+  if (!query.trim()) return true;
+  const normalized = query.trim().toLowerCase();
+  return Object.values(item || {}).some((value) =>
+    String(value || '').toLowerCase().includes(normalized),
+  );
+}
+
+function Overview({ role, stats, data, query }) {
   const title =
     role === 'OWNER'
       ? 'Quản lý ngựa, đăng ký giải và lời mời jockey'
@@ -291,7 +304,10 @@ function Overview({ role, stats, data }) {
         ))}
       </View>
       <Section title={role === 'OWNER' ? 'Giải đang mở đăng ký' : 'Tin nổi bật'}>
-        {(role === 'OWNER' ? data.openTournaments : data.news)?.slice(0, 3).map((item) => (
+        {(role === 'OWNER' ? data.openTournaments : data.news)
+          ?.filter((item) => matchesQuery(item, query))
+          .slice(0, 3)
+          .map((item) => (
           <ListItem
             key={item.id}
             icon={role === 'OWNER' ? 'trophy-outline' : 'newspaper-outline'}
@@ -305,7 +321,10 @@ function Overview({ role, stats, data }) {
       </Section>
       {role === 'REFEREE' ? (
         <Section title="Race sắp tới">
-          {(data.dashboard?.upcomingRaces || data.races || []).slice(0, 4).map((race) => (
+          {(data.dashboard?.upcomingRaces || data.races || [])
+            .filter((race) => matchesQuery(race, query))
+            .slice(0, 4)
+            .map((race) => (
             <ListItem
               key={race.id}
               icon="flag-outline"
@@ -322,6 +341,7 @@ function Overview({ role, stats, data }) {
       {role === 'SPECTATOR' ? (
         <Section title={role === 'REFEREE' ? 'Ngựa cần kiểm tra hồ sơ' : 'Top ngựa nổi bật'}>
           {[...(data.horses || [])]
+            .filter((horse) => matchesQuery(horse, query))
             .sort((a, b) => b.wins - a.wins)
             .slice(0, 4)
             .map((horse) => (
@@ -340,11 +360,11 @@ function Overview({ role, stats, data }) {
   );
 }
 
-function Schedule({ role, data }) {
+function Schedule({ role, data, query }) {
   if (role === 'OWNER') {
     return (
       <Section title="Đăng ký của chủ ngựa">
-        {(data.registrations || []).map((item) => (
+        {(data.registrations || []).filter((item) => matchesQuery(item, query)).map((item) => (
           <ListItem
             key={item.id}
             icon="reader-outline"
@@ -361,7 +381,7 @@ function Schedule({ role, data }) {
   if (role === 'JOCKEY') {
     return (
       <Section title="Lịch thi đấu của jockey">
-        {(data.registrations || []).map((item) => (
+        {(data.registrations || []).filter((item) => matchesQuery(item, query)).map((item) => (
           <ListItem
             key={item.id}
             icon="calendar-outline"
@@ -378,7 +398,7 @@ function Schedule({ role, data }) {
   if (role === 'REFEREE') {
     return (
       <Section title="Race được phân công">
-        {(data.races || []).map((item) => (
+        {(data.races || []).filter((item) => matchesQuery(item, query)).map((item) => (
           <ListItem
             key={item.id}
             icon="flag-outline"
@@ -394,7 +414,7 @@ function Schedule({ role, data }) {
 
   return (
     <Section title={role === 'REFEREE' ? 'Giải đấu cần theo dõi' : 'Lịch giải đấu'}>
-      {(data.tournaments || []).map((item) => (
+      {(data.tournaments || []).filter((item) => matchesQuery(item, query)).map((item) => (
         <ListItem
           key={item.id}
           icon="trophy-outline"
@@ -408,11 +428,11 @@ function Schedule({ role, data }) {
   );
 }
 
-function Tasks({ role, data, onInvitationResponse, onRefereeInvitationResponse }) {
+function Tasks({ role, data, query, onInvitationResponse, onRefereeInvitationResponse }) {
   if (role === 'OWNER') {
     return (
       <Section title="Lời mời jockey đã gửi">
-        {(data.invitations || []).map((item) => (
+        {(data.invitations || []).filter((item) => matchesQuery(item, query)).map((item) => (
           <ListItem
             key={item.id}
             icon="mail-outline"
@@ -429,7 +449,7 @@ function Tasks({ role, data, onInvitationResponse, onRefereeInvitationResponse }
   if (role === 'JOCKEY') {
     return (
       <Section title="Lời mời điều khiển ngựa">
-        {(data.invitations || []).map((item) => (
+        {(data.invitations || []).filter((item) => matchesQuery(item, query)).map((item) => (
           <View key={item.id} style={styles.invitationItem}>
             <ListItem
               icon="mail-unread-outline"
@@ -464,7 +484,7 @@ function Tasks({ role, data, onInvitationResponse, onRefereeInvitationResponse }
     return (
       <View>
         <Section title="Lời mời làm trọng tài">
-          {(data.invitations || []).map((item) => (
+          {(data.invitations || []).filter((item) => matchesQuery(item, query)).map((item) => (
             <View key={item.id} style={styles.invitationItem}>
               <ListItem
                 icon="mail-unread-outline"
@@ -494,7 +514,7 @@ function Tasks({ role, data, onInvitationResponse, onRefereeInvitationResponse }
         </Section>
 
         <Section title="Thù lao trọng tài">
-          {(data.payments || []).map((payment) => (
+          {(data.payments || []).filter((payment) => matchesQuery(payment, query)).map((payment) => (
             <ListItem
               key={payment.raceId}
               icon="cash-outline"
@@ -511,7 +531,10 @@ function Tasks({ role, data, onInvitationResponse, onRefereeInvitationResponse }
 
   return (
     <Section title={role === 'REFEREE' ? 'Race cần kiểm tra' : 'Tin tức mới'}>
-      {(role === 'REFEREE' ? data.tournaments : data.news)?.slice(0, 6).map((item) => (
+      {(role === 'REFEREE' ? data.tournaments : data.news)
+        ?.filter((item) => matchesQuery(item, query))
+        .slice(0, 6)
+        .map((item) => (
         <ListItem
           key={item.id}
           icon={role === 'REFEREE' ? 'flag-outline' : 'newspaper-outline'}
@@ -626,6 +649,26 @@ function Metric({ item }) {
   );
 }
 
+function SearchBox({ query, onChangeQuery }) {
+  return (
+    <View style={styles.searchBox}>
+      <Ionicons name="search-outline" size={18} color={colors.darkTextMuted} />
+      <TextInput
+        onChangeText={onChangeQuery}
+        placeholder="Tìm giải, race, ngựa, tin tức..."
+        placeholderTextColor={colors.darkTextMuted}
+        style={styles.searchInput}
+        value={query}
+      />
+      {query ? (
+        <Pressable hitSlop={10} onPress={() => onChangeQuery('')}>
+          <Ionicons name="close-circle" size={18} color={colors.darkTextMuted} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 function Section({ title, children }) {
   return (
     <View style={styles.section}>
@@ -731,6 +774,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     lineHeight: 25,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    minHeight: 46,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 14,
+    backgroundColor: colors.darkSurface,
+    paddingHorizontal: 13,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.darkText,
+    fontSize: 13,
+    fontWeight: '700',
   },
   metricGrid: {
     flexDirection: 'row',
