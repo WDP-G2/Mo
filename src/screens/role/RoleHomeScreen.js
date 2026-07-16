@@ -14,6 +14,7 @@ import { colors } from '../../constants/theme';
 import { horseService } from '../../services/horseService';
 import { invitationService } from '../../services/invitationService';
 import { newsService } from '../../services/newsService';
+import { refereeService } from '../../services/refereeService';
 import { tournamentService } from '../../services/tournamentService';
 import { getRoleLabel, normalizeRole } from '../../utils/role';
 
@@ -72,6 +73,18 @@ async function loadDataForRole(role) {
     ]);
 
     return { registrations, invitations, tournaments, news };
+  }
+
+  if (role === 'REFEREE') {
+    const [dashboard, races, invitations, payments, news] = await Promise.all([
+      refereeService.getDashboard(),
+      refereeService.listRaces(),
+      refereeService.listInvitations(),
+      refereeService.listPayments(),
+      newsService.list(),
+    ]);
+
+    return { dashboard, races, invitations, payments, news };
   }
 
   const [tournaments, horses, news] = await Promise.all([
@@ -134,6 +147,20 @@ export default function RoleHomeScreen({ user, onLogout }) {
     }
   }
 
+  async function handleRefereeInvitationResponse(id, action) {
+    try {
+      const updated = await refereeService.respondInvitation(id, action);
+      setData((current) => ({
+        ...current,
+        invitations: (current.invitations || []).map((item) =>
+          item.id === id ? { ...item, status: updated?.status || item.status } : item,
+        ),
+      }));
+    } catch (requestError) {
+      setError(requestError.message || 'Không cập nhật được lời mời trọng tài.');
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.app}>
@@ -163,7 +190,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
             {activeTab === 'overview' ? <Overview role={role} stats={stats} data={data} /> : null}
             {activeTab === 'schedule' ? <Schedule role={role} data={data} /> : null}
             {activeTab === 'tasks' ? (
-              <Tasks role={role} data={data} onInvitationResponse={handleInvitationResponse} />
+              <Tasks
+                role={role}
+                data={data}
+                onInvitationResponse={handleInvitationResponse}
+                onRefereeInvitationResponse={handleRefereeInvitationResponse}
+              />
             ) : null}
             {activeTab === 'account' ? <Account user={user} role={role} onLogout={onLogout} /> : null}
           </ScrollView>
@@ -212,6 +244,20 @@ function buildStats(role, data) {
     ];
   }
 
+  if (role === 'REFEREE') {
+    return [
+      { icon: 'flag-outline', label: 'Race được phân', value: data.dashboard?.assignedRaceCount || 0 },
+      { icon: 'time-outline', label: 'Chờ check-in', value: data.dashboard?.pendingCheckInCount || 0 },
+      { icon: 'checkmark-circle-outline', label: 'Đã check-in', value: data.dashboard?.checkedInCount || 0 },
+      {
+        icon: 'mail-unread-outline',
+        label: 'Lời mời chờ',
+        value: (data.invitations || []).filter((item) => item.status === 'Chờ xử lý').length,
+      },
+    ];
+  }
+
+
   return [
     { icon: 'trophy-outline', label: 'Giải đấu', value: data.tournaments?.length || 0 },
     { icon: 'footsteps-outline', label: 'Ngựa đua', value: data.horses?.length || 0 },
@@ -231,7 +277,7 @@ function Overview({ role, stats, data }) {
       : role === 'JOCKEY'
         ? 'Theo dõi lịch thi đấu và lời mời điều khiển ngựa'
         : role === 'REFEREE'
-          ? 'Theo dõi giải đấu và dữ liệu cuộc đua cần kiểm tra'
+          ? 'Theo dõi race được phân công, check-in và lời mời trọng tài'
           : 'Xem giải đấu, tin tức và bảng xếp hạng ngựa';
 
   return (
@@ -255,7 +301,23 @@ function Overview({ role, stats, data }) {
           <EmptyText text="Chưa có dữ liệu." />
         ) : null}
       </Section>
-      {role === 'SPECTATOR' || role === 'REFEREE' ? (
+      {role === 'REFEREE' ? (
+        <Section title="Race sắp tới">
+          {(data.dashboard?.upcomingRaces || data.races || []).slice(0, 4).map((race) => (
+            <ListItem
+              key={race.id}
+              icon="flag-outline"
+              title={race.name}
+              meta={race.tournamentName || race.location || 'Chưa cập nhật địa điểm'}
+              badge={race.status}
+            />
+          ))}
+          {!(data.dashboard?.upcomingRaces || data.races)?.length ? (
+            <EmptyText text="Chưa có race được phân công." />
+          ) : null}
+        </Section>
+      ) : null}
+      {role === 'SPECTATOR' ? (
         <Section title={role === 'REFEREE' ? 'Ngựa cần kiểm tra hồ sơ' : 'Top ngựa nổi bật'}>
           {[...(data.horses || [])]
             .sort((a, b) => b.wins - a.wins)
@@ -311,6 +373,23 @@ function Schedule({ role, data }) {
     );
   }
 
+  if (role === 'REFEREE') {
+    return (
+      <Section title="Race được phân công">
+        {(data.races || []).map((item) => (
+          <ListItem
+            key={item.id}
+            icon="flag-outline"
+            title={item.name}
+            meta={`${item.tournamentName || 'Giải đấu'} · ${item.pendingCheckInCount} chờ check-in`}
+            badge={item.status}
+          />
+        ))}
+        {!data.races?.length ? <EmptyText text="Chưa có race được phân công." /> : null}
+      </Section>
+    );
+  }
+
   return (
     <Section title={role === 'REFEREE' ? 'Giải đấu cần theo dõi' : 'Lịch giải đấu'}>
       {(data.tournaments || []).map((item) => (
@@ -327,7 +406,7 @@ function Schedule({ role, data }) {
   );
 }
 
-function Tasks({ role, data, onInvitationResponse }) {
+function Tasks({ role, data, onInvitationResponse, onRefereeInvitationResponse }) {
   if (role === 'OWNER') {
     return (
       <Section title="Lời mời jockey đã gửi">
@@ -376,6 +455,55 @@ function Tasks({ role, data, onInvitationResponse }) {
         ))}
         {!data.invitations?.length ? <EmptyText text="Chưa có lời mời." /> : null}
       </Section>
+    );
+  }
+
+  if (role === 'REFEREE') {
+    return (
+      <View>
+        <Section title="Lời mời làm trọng tài">
+          {(data.invitations || []).map((item) => (
+            <View key={item.id} style={styles.invitationItem}>
+              <ListItem
+                icon="mail-unread-outline"
+                title={item.raceName}
+                meta={item.tournamentName || 'Giải đấu'}
+                badge={item.status}
+              />
+              {item.status === 'Chờ xử lý' ? (
+                <View style={styles.invitationActions}>
+                  <Pressable
+                    style={styles.secondaryAction}
+                    onPress={() => onRefereeInvitationResponse(item.id, 'reject')}
+                  >
+                    <Text style={styles.secondaryActionText}>Từ chối</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.primaryAction}
+                    onPress={() => onRefereeInvitationResponse(item.id, 'accept')}
+                  >
+                    <Text style={styles.primaryActionText}>Nhận lời</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+          ))}
+          {!data.invitations?.length ? <EmptyText text="Chưa có lời mời trọng tài." /> : null}
+        </Section>
+
+        <Section title="Thù lao trọng tài">
+          {(data.payments || []).map((payment) => (
+            <ListItem
+              key={payment.raceId}
+              icon="cash-outline"
+              title={payment.raceName}
+              meta={payment.tournamentName}
+              badge={`${payment.amount.toLocaleString('vi-VN')}đ · ${payment.status}`}
+            />
+          ))}
+          {!data.payments?.length ? <EmptyText text="Chưa có dữ liệu thù lao." /> : null}
+        </Section>
+      </View>
     );
   }
 
