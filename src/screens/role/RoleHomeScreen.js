@@ -91,7 +91,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const role = roleOrSpectator(user?.role);
   const name = displayName(user);
 
-  useEffect(() => {
+  function refreshData() {
     let alive = true;
     setLoading(true);
     setError('');
@@ -107,9 +107,15 @@ export default function RoleHomeScreen({ user, onLogout }) {
         if (alive) setLoading(false);
       });
 
-    return () => {
+    return function cleanup() {
       alive = false;
     };
+  }
+
+  useEffect(() => {
+    const cleanup = refreshData();
+    return cleanup;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
   const stats = useMemo(() => buildStats(role, data), [data, role]);
@@ -136,8 +142,13 @@ export default function RoleHomeScreen({ user, onLogout }) {
             <Text style={styles.eyebrow}>{getRoleLabel(role)} Portal</Text>
             <Text style={styles.title}>{name}</Text>
           </View>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials(name)}</Text>
+          <View style={styles.headerActions}>
+            <Pressable style={styles.refreshButton} onPress={refreshData}>
+              <Ionicons name="refresh-outline" size={19} color={colors.darkText} />
+            </Pressable>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initials(name)}</Text>
+            </View>
           </View>
         </View>
 
@@ -244,6 +255,23 @@ function Overview({ role, stats, data }) {
           <EmptyText text="Chưa có dữ liệu." />
         ) : null}
       </Section>
+      {role === 'SPECTATOR' || role === 'REFEREE' ? (
+        <Section title={role === 'REFEREE' ? 'Ngựa cần kiểm tra hồ sơ' : 'Top ngựa nổi bật'}>
+          {[...(data.horses || [])]
+            .sort((a, b) => b.wins - a.wins)
+            .slice(0, 4)
+            .map((horse) => (
+              <ListItem
+                key={horse.id}
+                icon="footsteps-outline"
+                title={horse.name}
+                meta={`${horse.ownerName || 'Chưa cập nhật chủ'} · ${horse.healthStatus}`}
+                badge={`${horse.wins} thắng`}
+              />
+            ))}
+          {!data.horses?.length ? <EmptyText text="Chưa có dữ liệu ngựa." /> : null}
+        </Section>
+      ) : null}
     </View>
   );
 }
@@ -362,6 +390,9 @@ function Tasks({ role, data, onInvitationResponse }) {
           badge={role === 'REFEREE' ? `${item.raceCount || 0} race` : formatDate(item.publishedAt)}
         />
       ))}
+      {!(role === 'REFEREE' ? data.tournaments : data.news)?.length ? (
+        <EmptyText text="Chưa có dữ liệu." />
+      ) : null}
     </Section>
   );
 }
@@ -476,6 +507,21 @@ const styles = StyleSheet.create({
     color: '#1D1705',
     fontSize: 14,
     fontWeight: '900',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  refreshButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 13,
+    backgroundColor: colors.darkSurface,
   },
   content: {
     paddingHorizontal: 15,
