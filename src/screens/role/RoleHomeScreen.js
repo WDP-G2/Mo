@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import { invitationService } from '../../services/invitationService';
 import { newsService } from '../../services/newsService';
 import { refereeService } from '../../services/refereeService';
 import { tournamentService } from '../../services/tournamentService';
+import { userService } from '../../services/userService';
 import { getRoleLabel, normalizeRole } from '../../utils/role';
 
 const tabs = [
@@ -526,7 +528,32 @@ function Tasks({ role, data, onInvitationResponse, onRefereeInvitationResponse }
 }
 
 function Account({ user, role, onLogout }) {
-  const name = displayName(user);
+  const [form, setForm] = useState({
+    fullName: displayName(user),
+    phone: user?.phone || '',
+    location: user?.location || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const name = form.fullName || displayName(user);
+
+  async function saveProfile() {
+    try {
+      setSaving(true);
+      setMessage('');
+      const updated = await userService.updateProfile(form);
+      setForm({
+        fullName: updated?.fullName || updated?.name || form.fullName,
+        phone: updated?.phone || '',
+        location: updated?.location || '',
+      });
+      setMessage('Đã cập nhật hồ sơ.');
+    } catch (requestError) {
+      setMessage(requestError.message || 'Không cập nhật được hồ sơ.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <View>
@@ -538,10 +565,53 @@ function Account({ user, role, onLogout }) {
         <Text style={styles.profileMeta}>{user?.email || 'Chưa cập nhật email'}</Text>
         <Text style={styles.rolePill}>{getRoleLabel(role)}</Text>
       </View>
+
+      <Section title="Cập nhật hồ sơ">
+        <ProfileField
+          label="Họ và tên"
+          value={form.fullName}
+          onChangeText={(value) => setForm((current) => ({ ...current, fullName: value }))}
+        />
+        <ProfileField
+          label="Số điện thoại"
+          keyboardType="phone-pad"
+          value={form.phone}
+          onChangeText={(value) => setForm((current) => ({ ...current, phone: value }))}
+        />
+        <ProfileField
+          label="Địa điểm"
+          value={form.location}
+          onChangeText={(value) => setForm((current) => ({ ...current, location: value }))}
+        />
+        {message ? <Text style={styles.profileMessage}>{message}</Text> : null}
+        <Pressable
+          disabled={saving || !form.fullName.trim()}
+          style={[styles.saveProfileButton, (saving || !form.fullName.trim()) && styles.disabledButton]}
+          onPress={saveProfile}
+        >
+          <Text style={styles.saveProfileText}>{saving ? 'Đang lưu...' : 'Lưu hồ sơ'}</Text>
+        </Pressable>
+      </Section>
+
       <Pressable style={styles.logoutButton} onPress={onLogout}>
         <Ionicons name="log-out-outline" size={18} color="#1D1705" />
         <Text style={styles.logoutText}>Đăng xuất</Text>
       </Pressable>
+    </View>
+  );
+}
+
+function ProfileField({ label, value, onChangeText, keyboardType = 'default' }) {
+  return (
+    <View style={styles.profileField}>
+      <Text style={styles.profileLabel}>{label}</Text>
+      <TextInput
+        keyboardType={keyboardType}
+        onChangeText={onChangeText}
+        placeholderTextColor={colors.darkTextMuted}
+        style={styles.profileInput}
+        value={value}
+      />
     </View>
   );
 }
@@ -840,6 +910,51 @@ const styles = StyleSheet.create({
     color: colors.darkTextMuted,
     fontSize: 12,
     fontWeight: '700',
+  },
+  profileField: {
+    padding: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D2A40',
+  },
+  profileLabel: {
+    color: colors.darkTextMuted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  profileInput: {
+    minHeight: 42,
+    marginTop: 7,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 12,
+    backgroundColor: colors.darkSurfaceSoft,
+    color: colors.darkText,
+    fontSize: 13,
+    fontWeight: '800',
+    paddingHorizontal: 12,
+  },
+  profileMessage: {
+    paddingHorizontal: 13,
+    paddingTop: 12,
+    color: colors.darkTextMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  saveProfileButton: {
+    alignItems: 'center',
+    margin: 13,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+  },
+  saveProfileText: {
+    color: '#1D1705',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   rolePill: {
     marginTop: 14,
