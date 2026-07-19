@@ -1,8 +1,8 @@
 export const ENDPOINTS = {
   auth: {
-    register: '/users/register',
-    login: '/users/login',
-    me: '/users/me',
+    register: '/auth/register',
+    login: '/auth/login',
+    me: '/auth/me',
   },
   users: {
     list: '/users',
