@@ -43,4 +43,7 @@ export const ENDPOINTS = {
     jockeyInvitations: '/owner/jockey-invitations',
     cancelJockeyInvitation: (id) => `/owner/jockey-invitations/${id}/cancel`,
   },
+  spectator: {
+    dashboard: '/spectator/dashboard',
+  },
 };
