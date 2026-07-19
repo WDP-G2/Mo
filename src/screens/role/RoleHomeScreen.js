@@ -17,6 +17,7 @@ import { invitationService } from '../../services/invitationService';
 import { newsService } from '../../services/newsService';
 import { ownerService } from '../../services/ownerService';
 import { refereeService } from '../../services/refereeService';
+import { spectatorService } from '../../services/spectatorService';
 import { tournamentService } from '../../services/tournamentService';
 import { userService } from '../../services/userService';
 import { getRoleLabel, normalizeRole } from '../../utils/role';
@@ -89,6 +90,17 @@ async function loadDataForRole(role) {
     ]);
 
     return { dashboard, races, invitations, payments, news };
+  }
+
+  if (role === 'SPECTATOR') {
+    const [dashboard, tournaments, horses, news] = await Promise.all([
+      spectatorService.getDashboard(),
+      tournamentService.list(),
+      horseService.list(),
+      newsService.list(),
+    ]);
+
+    return { dashboard, tournaments, horses, news };
   }
 
   const [tournaments, horses, news] = await Promise.all([
@@ -283,13 +295,17 @@ function buildStats(role, data) {
 
 
   return [
-    { icon: 'trophy-outline', label: 'Giải đấu', value: data.tournaments?.length || 0 },
-    { icon: 'footsteps-outline', label: 'Ngựa đua', value: data.horses?.length || 0 },
-    { icon: 'newspaper-outline', label: 'Tin tức', value: data.news?.length || 0 },
     {
-      icon: role === 'REFEREE' ? 'shield-checkmark-outline' : 'eye-outline',
-      label: role === 'REFEREE' ? 'Theo dõi race' : 'Theo dõi',
-      value: role === 'REFEREE' ? data.tournaments?.length || 0 : data.news?.length || 0,
+      icon: 'wallet-outline',
+      label: 'Số dư ví',
+      value: (data.dashboard?.wallet?.availableBalance || 0).toLocaleString('vi-VN'),
+    },
+    { icon: 'trophy-outline', label: 'Giải mở', value: data.dashboard?.businessSummary?.openTournamentCount || data.tournaments?.length || 0 },
+    { icon: 'cash-outline', label: 'Kèo mở', value: data.dashboard?.businessSummary?.openBetMarketCount || 0 },
+    {
+      icon: 'ticket-outline',
+      label: 'Tổng cược',
+      value: (data.dashboard?.businessSummary?.totalBetStake || 0).toLocaleString('vi-VN'),
     },
   ];
 }
@@ -356,7 +372,21 @@ function Overview({ role, stats, data, query }) {
         </Section>
       ) : null}
       {role === 'SPECTATOR' ? (
-        <Section title={role === 'REFEREE' ? 'Ngựa cần kiểm tra hồ sơ' : 'Top ngựa nổi bật'}>
+        <Section title="Kèo cược đang mở">
+          {(data.dashboard?.upcoming || []).filter((item) => matchesQuery(item, query)).map((item) => (
+            <ListItem
+              key={item.id}
+              icon="cash-outline"
+              title={item.title}
+              meta={item.metadata?.tournamentName || 'Kèo cược'}
+              badge={item.status}
+            />
+          ))}
+          {!data.dashboard?.upcoming?.length ? <EmptyText text="Chưa có kèo cược đang mở." /> : null}
+        </Section>
+      ) : null}
+      {role === 'SPECTATOR' ? (
+        <Section title="Top ngựa nổi bật">
           {[...(data.horses || [])]
             .filter((horse) => matchesQuery(horse, query))
             .sort((a, b) => b.wins - a.wins)
@@ -559,6 +589,46 @@ function Tasks({
             />
           ))}
           {!data.payments?.length ? <EmptyText text="Chưa có dữ liệu thù lao." /> : null}
+        </Section>
+      </View>
+    );
+  }
+
+  if (role === 'SPECTATOR') {
+    return (
+      <View>
+        <Section title="Tin tức mới">
+          {(data.news || [])
+            .filter((item) => matchesQuery(item, query))
+            .slice(0, 6)
+            .map((item) => (
+              <ListItem
+                key={item.id}
+                icon="newspaper-outline"
+                title={item.title}
+                meta={item.category}
+                badge={formatDate(item.publishedAt)}
+              />
+            ))}
+          {!data.news?.length ? <EmptyText text="Chưa có tin tức." /> : null}
+        </Section>
+
+        <Section title="Thông báo gần đây">
+          {(data.dashboard?.recentNotifications || [])
+            .filter((item) => matchesQuery(item, query))
+            .slice(0, 5)
+            .map((item) => (
+              <ListItem
+                key={item.id}
+                icon="notifications-outline"
+                title={item.title}
+                meta={item.message || 'Thông báo'}
+                badge={item.read ? 'Đã đọc' : 'Mới'}
+              />
+            ))}
+          {!data.dashboard?.recentNotifications?.length ? (
+            <EmptyText text="Chưa có thông báo." />
+          ) : null}
         </Section>
       </View>
     );
