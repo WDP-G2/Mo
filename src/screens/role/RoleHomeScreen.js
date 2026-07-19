@@ -15,6 +15,7 @@ import { colors } from '../../constants/theme';
 import { horseService } from '../../services/horseService';
 import { invitationService } from '../../services/invitationService';
 import { newsService } from '../../services/newsService';
+import { ownerService } from '../../services/ownerService';
 import { refereeService } from '../../services/refereeService';
 import { tournamentService } from '../../services/tournamentService';
 import { userService } from '../../services/userService';
@@ -55,15 +56,16 @@ function formatDate(value) {
 
 async function loadDataForRole(role) {
   if (role === 'OWNER') {
-    const [openTournaments, registrations, horses, invitations, news] = await Promise.all([
+    const [dashboard, openTournaments, registrations, horses, invitations, news] = await Promise.all([
+      ownerService.getDashboard(),
       tournamentService.listOwnerOpen(),
-      tournamentService.listOwnerRegistrations(),
-      horseService.listMine(),
-      invitationService.listSent(),
+      ownerService.listRaceRegistrations(),
+      ownerService.listHorses(),
+      ownerService.listJockeyInvitations(),
       newsService.list(),
     ]);
 
-    return { openTournaments, registrations, horses, invitations, news };
+    return { dashboard, openTournaments, registrations, horses, invitations, news };
   }
 
   if (role === 'JOCKEY') {
@@ -164,6 +166,20 @@ export default function RoleHomeScreen({ user, onLogout }) {
     }
   }
 
+  async function handleOwnerInvitationCancel(id) {
+    try {
+      const updated = await ownerService.cancelJockeyInvitation(id);
+      setData((current) => ({
+        ...current,
+        invitations: (current.invitations || []).map((item) =>
+          item.id === id ? { ...item, status: updated?.status || item.status } : item,
+        ),
+      }));
+    } catch (requestError) {
+      setError(requestError.message || 'Không hủy được lời mời jockey.');
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.app}>
@@ -200,6 +216,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
                 role={role}
                 data={data}
                 query={query}
+                onOwnerInvitationCancel={handleOwnerInvitationCancel}
                 onInvitationResponse={handleInvitationResponse}
                 onRefereeInvitationResponse={handleRefereeInvitationResponse}
               />
@@ -233,7 +250,7 @@ function buildStats(role, data) {
     return [
       { icon: 'footsteps-outline', label: 'Ngựa của tôi', value: data.horses?.length || 0 },
       { icon: 'trophy-outline', label: 'Giải mở', value: data.openTournaments?.length || 0 },
-      { icon: 'reader-outline', label: 'Đăng ký', value: data.registrations?.length || 0 },
+      { icon: 'reader-outline', label: 'Đăng ký', value: data.dashboard?.registrationCount || data.registrations?.length || 0 },
       { icon: 'mail-outline', label: 'Lời mời jockey', value: data.invitations?.length || 0 },
     ];
   }
@@ -428,18 +445,36 @@ function Schedule({ role, data, query }) {
   );
 }
 
-function Tasks({ role, data, query, onInvitationResponse, onRefereeInvitationResponse }) {
+function Tasks({
+  role,
+  data,
+  query,
+  onOwnerInvitationCancel,
+  onInvitationResponse,
+  onRefereeInvitationResponse,
+}) {
   if (role === 'OWNER') {
     return (
       <Section title="Lời mời jockey đã gửi">
         {(data.invitations || []).filter((item) => matchesQuery(item, query)).map((item) => (
-          <ListItem
-            key={item.id}
-            icon="mail-outline"
-            title={item.jockeyName || 'Jockey'}
-            meta={`${item.horseName || 'Ngựa'} · ${item.tournamentName || 'Giải đấu'}`}
-            badge={item.status}
-          />
+          <View key={item.id} style={styles.invitationItem}>
+            <ListItem
+              icon="mail-outline"
+              title={item.jockeyName || 'Jockey'}
+              meta={`${item.horseName || 'Ngựa'} · ${item.tournamentName || item.raceLabel || 'Giải đấu'}`}
+              badge={item.status}
+            />
+            {item.status === 'Chờ xử lý' ? (
+              <View style={styles.invitationActions}>
+                <Pressable
+                  style={styles.secondaryAction}
+                  onPress={() => onOwnerInvitationCancel(item.id)}
+                >
+                  <Text style={styles.secondaryActionText}>Hủy lời mời</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
         ))}
         {!data.invitations?.length ? <EmptyText text="Chưa gửi lời mời jockey." /> : null}
       </Section>
