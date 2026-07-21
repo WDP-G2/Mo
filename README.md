@@ -22,7 +22,7 @@ npm.cmd run start -- --host lan --port 8081
 Tao file `.env` tu `.env.example` va cau hinh backend API:
 
 ```text
-EXPO_PUBLIC_API_BASE_URL=http://localhost:3000
+EXPO_PUBLIC_API_BASE_URL=https://be-production-dcb3.up.railway.app/api/v1
 ```
 
 Khi chay tren dien thoai that, dung IP LAN cua may chay BE thay cho `localhost`.
