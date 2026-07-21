@@ -48,7 +48,12 @@ async function parseResponse(response) {
 
 export async function apiRequest(path, options = {}) {
   const { params, headers, body, ...requestOptions } = options;
-  const response = await fetch(buildUrl(path, params), {
+  const requestUrl = buildUrl(path, params);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[api]', requestOptions.method || 'GET', requestUrl);
+  }
+
+  const response = await fetch(requestUrl, {
     ...requestOptions,
     headers: {
       Accept: 'application/json',
