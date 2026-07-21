@@ -11,7 +11,9 @@ export function getAuthToken() {
 }
 
 function buildUrl(path, params) {
-  const url = new URL(path, API_BASE_URL);
+  const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+  const normalizedPath = String(path || '').replace(/^\/+/, '');
+  const url = new URL(`${baseUrl}/${normalizedPath}`);
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '') return;
