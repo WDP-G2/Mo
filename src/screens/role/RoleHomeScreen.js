@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../constants/theme';
 import { horseService } from '../../services/horseService';
 import { invitationService } from '../../services/invitationService';
+import { jockeyService } from '../../services/jockeyService';
 import { newsService } from '../../services/newsService';
 import { ownerService } from '../../services/ownerService';
 import { refereeService } from '../../services/refereeService';
@@ -70,14 +71,17 @@ async function loadDataForRole(role) {
   }
 
   if (role === 'JOCKEY') {
-    const [registrations, invitations, tournaments, news] = await Promise.all([
-      tournamentService.listJockeyRegistrations(),
-      invitationService.listMine(),
+    const [dashboard, races, performance, prizes, invitations, tournaments, news] = await Promise.all([
+      jockeyService.getDashboard(),
+      jockeyService.listRaces(),
+      jockeyService.getPerformance(),
+      jockeyService.listPrizes(),
+      jockeyService.listInvitations(),
       tournamentService.list(),
       newsService.list(),
     ]);
 
-    return { registrations, invitations, tournaments, news };
+    return { dashboard, races, performance, prizes, invitations, tournaments, news };
   }
 
   if (role === 'REFEREE') {
@@ -152,7 +156,10 @@ export default function RoleHomeScreen({ user, onLogout }) {
 
   async function handleInvitationResponse(id, action) {
     try {
-      const updated = await invitationService.respond(id, action);
+      const updated =
+        role === 'JOCKEY'
+          ? await jockeyService.respondInvitation(id, action)
+          : await invitationService.respond(id, action);
       setData((current) => ({
         ...current,
         invitations: (current.invitations || []).map((item) =>
@@ -291,14 +298,14 @@ function buildStats(role, data) {
 
   if (role === 'JOCKEY') {
     return [
-      { icon: 'calendar-outline', label: 'Lịch được phân', value: data.registrations?.length || 0 },
+      { icon: 'calendar-outline', label: 'Race đã chạy', value: data.dashboard?.raceCount || data.races?.length || 0 },
       {
         icon: 'mail-unread-outline',
         label: 'Lời mời chờ',
         value: (data.invitations || []).filter((item) => item.status === 'Chờ xử lý').length,
       },
-      { icon: 'trophy-outline', label: 'Giải đấu', value: data.tournaments?.length || 0 },
-      { icon: 'newspaper-outline', label: 'Tin mới', value: data.news?.length || 0 },
+      { icon: 'ribbon-outline', label: 'Số trận thắng', value: data.dashboard?.wins || 0 },
+      { icon: 'cash-outline', label: 'Thù lao', value: (data.dashboard?.totalJockeyPayout || 0).toLocaleString('vi-VN') },
     ];
   }
 
@@ -393,6 +400,23 @@ function Overview({ role, stats, data, query }) {
           ) : null}
         </Section>
       ) : null}
+      {role === 'JOCKEY' ? (
+        <Section title="Thành tích gần đây">
+          {(data.prizes || [])
+            .filter((item) => matchesQuery(item, query))
+            .slice(0, 4)
+            .map((item) => (
+              <ListItem
+                key={item.id}
+                icon="ribbon-outline"
+                title={`${item.raceName} · Hạng ${item.position || '-'}`}
+                meta={`${item.tournamentName} · ${item.horseName}`}
+                badge={`${item.prizeAmount.toLocaleString('vi-VN')}đ`}
+              />
+            ))}
+          {!data.prizes?.length ? <EmptyText text="Chưa có giải thưởng." /> : null}
+        </Section>
+      ) : null}
       {role === 'SPECTATOR' ? (
         <Section title="Kèo cược đang mở">
           {(data.dashboard?.upcoming || []).filter((item) => matchesQuery(item, query)).map((item) => (
@@ -450,16 +474,16 @@ function Schedule({ role, data, query, onStartRace }) {
   if (role === 'JOCKEY') {
     return (
       <Section title="Lịch thi đấu của jockey">
-        {(data.registrations || []).filter((item) => matchesQuery(item, query)).map((item) => (
+        {(data.races || []).filter((item) => matchesQuery(item, query)).map((item) => (
           <ListItem
             key={item.id}
             icon="calendar-outline"
             title={item.raceName || item.tournamentName || 'Race'}
             meta={`${item.horseName || 'Ngựa'} · ${item.ownerName || 'Chủ ngựa'}`}
-            badge={item.raceDate || item.raceStatus || item.status}
+            badge={item.status}
           />
         ))}
-        {!data.registrations?.length ? <EmptyText text="Chưa có lịch thi đấu." /> : null}
+        {!data.races?.length ? <EmptyText text="Chưa có lịch thi đấu." /> : null}
       </Section>
     );
   }

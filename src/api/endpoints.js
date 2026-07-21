@@ -28,6 +28,16 @@ export const ENDPOINTS = {
     sent: '/invitations/sent',
     respond: (id) => `/invitations/${id}/respond`,
   },
+  jockey: {
+    dashboard: '/jockey/dashboard',
+    races: '/jockey/races',
+    performance: '/jockey/performance',
+    prizes: '/jockey/prizes',
+    profile: '/jockey/profile',
+    invitations: '/jockey/invitations',
+    acceptInvitation: (id) => `/jockey/invitations/${id}/accept`,
+    rejectInvitation: (id) => `/jockey/invitations/${id}/reject`,
+  },
   referee: {
     dashboard: '/referee/dashboard',
     races: '/referee/races',
