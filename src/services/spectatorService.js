@@ -27,6 +27,36 @@ function mapNotification(item) {
   };
 }
 
+function mapMarket(item) {
+  if (!item) return null;
+  return {
+    id: String(item.id || item._id || ''),
+    raceId: String(item.raceId || ''),
+    raceName: item.raceName || 'Race',
+    tournamentName: item.tournamentName || 'Giải đấu',
+    status: item.status || 'OPEN',
+    minStake: toNumber(item.minStake),
+    maxStake: toNumber(item.maxStake),
+    openedAt: item.openedAt || '',
+    options: Array.isArray(item.options) ? item.options : [],
+  };
+}
+
+function mapBet(item) {
+  if (!item) return null;
+  return {
+    id: String(item.id || item._id || ''),
+    raceId: String(item.raceId || ''),
+    raceName: item.raceName || 'Race',
+    tournamentName: item.tournamentName || 'Giải đấu',
+    horseName: item.horseName || 'Ngựa',
+    stakeAmount: toNumber(item.stakeAmount),
+    potentialPayoutAmount: toNumber(item.potentialPayoutAmount),
+    status: item.status || 'PLACED',
+    placedAt: item.placedAt || '',
+  };
+}
+
 export const spectatorService = {
   async getDashboard() {
     const data = await apiRequest(ENDPOINTS.spectator.dashboard);
@@ -53,5 +83,36 @@ export const spectatorService = {
         : [],
     };
   },
-};
 
+  async listBettableRaces() {
+    const markets = await apiRequest(ENDPOINTS.users.bettableRaces);
+    return (Array.isArray(markets) ? markets : []).map(mapMarket).filter(Boolean);
+  },
+
+  async listMyBets() {
+    const bets = await apiRequest(ENDPOINTS.users.myBets);
+    return (Array.isArray(bets) ? bets : []).map(mapBet).filter(Boolean);
+  },
+
+  async getRaceMarket(raceId) {
+    const market = await apiRequest(ENDPOINTS.races.betMarket(raceId));
+    return mapMarket(market);
+  },
+
+  async getRaceResults(raceId) {
+    const results = await apiRequest(ENDPOINTS.races.results(raceId));
+    return Array.isArray(results) ? results : [];
+  },
+
+  async placeBet(raceId, payload) {
+    const bet = await apiRequest(ENDPOINTS.races.placeBet(raceId), {
+      method: 'POST',
+      headers: { 'Idempotency-Key': payload.idempotencyKey },
+      body: {
+        participantId: payload.participantId,
+        stakeAmount: payload.stakeAmount,
+      },
+    });
+    return mapBet(bet);
+  },
+};

@@ -7,6 +7,8 @@ export const ENDPOINTS = {
   users: {
     list: '/users',
     profile: '/users/me/profile',
+    bettableRaces: '/users/me/bettable-races',
+    myBets: '/users/me/bets',
     jockeyDirectory: '/users/jockeys/directory',
     byRole: (role) => `/users?role=${encodeURIComponent(role)}`,
   },
@@ -60,5 +62,10 @@ export const ENDPOINTS = {
   },
   spectator: {
     dashboard: '/spectator/dashboard',
+  },
+  races: {
+    betMarket: (id) => `/races/${id}/bet-market`,
+    results: (id) => `/races/${id}/results`,
+    placeBet: (id) => `/races/${id}/bets`,
   },
 };

@@ -99,14 +99,16 @@ async function loadDataForRole(role) {
   }
 
   if (role === 'SPECTATOR') {
-    const [dashboard, tournaments, horses, news] = await Promise.all([
+    const [dashboard, markets, bets, tournaments, horses, news] = await Promise.all([
       spectatorService.getDashboard(),
+      spectatorService.listBettableRaces(),
+      spectatorService.listMyBets(),
       tournamentService.list(),
       horseService.list(),
       newsService.list(),
     ]);
 
-    return { dashboard, tournaments, horses, news };
+    return { dashboard, markets, bets, tournaments, horses, news };
   }
 
   const [tournaments, horses, news] = await Promise.all([
@@ -352,7 +354,7 @@ function buildStats(role, data) {
       value: (data.dashboard?.wallet?.availableBalance || 0).toLocaleString('vi-VN'),
     },
     { icon: 'trophy-outline', label: 'Giải mở', value: data.dashboard?.businessSummary?.openTournamentCount || data.tournaments?.length || 0 },
-    { icon: 'cash-outline', label: 'Kèo mở', value: data.dashboard?.businessSummary?.openBetMarketCount || 0 },
+    { icon: 'cash-outline', label: 'Kèo mở', value: data.markets?.length || data.dashboard?.businessSummary?.openBetMarketCount || 0 },
     {
       icon: 'ticket-outline',
       label: 'Tổng cược',
@@ -441,16 +443,16 @@ function Overview({ role, stats, data, query }) {
       ) : null}
       {role === 'SPECTATOR' ? (
         <Section title="Kèo cược đang mở">
-          {(data.dashboard?.upcoming || []).filter((item) => matchesQuery(item, query)).map((item) => (
+          {(data.markets || []).filter((item) => matchesQuery(item, query)).slice(0, 4).map((item) => (
             <ListItem
               key={item.id}
               icon="cash-outline"
-              title={item.title}
-              meta={item.metadata?.tournamentName || 'Kèo cược'}
-              badge={item.status}
+              title={item.raceName}
+              meta={`${item.tournamentName} · ${item.options.length} lựa chọn`}
+              badge={`${item.minStake.toLocaleString('vi-VN')}đ+`}
             />
           ))}
-          {!data.dashboard?.upcoming?.length ? <EmptyText text="Chưa có kèo cược đang mở." /> : null}
+          {!data.markets?.length ? <EmptyText text="Chưa có kèo cược đang mở." /> : null}
         </Section>
       ) : null}
       {role === 'SPECTATOR' ? (
@@ -542,6 +544,23 @@ function Schedule({ role, data, query, onOwnerRegistrationWithdraw, onStartRace 
           </View>
         ))}
         {!data.races?.length ? <EmptyText text="Chưa có race được phân công." /> : null}
+      </Section>
+    );
+  }
+
+  if (role === 'SPECTATOR') {
+    return (
+      <Section title="Kèo cược đang mở">
+        {(data.markets || []).filter((item) => matchesQuery(item, query)).map((item) => (
+          <ListItem
+            key={item.id}
+            icon="cash-outline"
+            title={item.raceName}
+            meta={`${item.tournamentName} · ${item.options.length} cửa cược`}
+            badge={`${item.minStake.toLocaleString('vi-VN')}đ - ${item.maxStake.toLocaleString('vi-VN')}đ`}
+          />
+        ))}
+        {!data.markets?.length ? <EmptyText text="Chưa có kèo cược đang mở." /> : null}
       </Section>
     );
   }
@@ -684,6 +703,22 @@ function Tasks({
   if (role === 'SPECTATOR') {
     return (
       <View>
+        <Section title="Vé cược của tôi">
+          {(data.bets || [])
+            .filter((item) => matchesQuery(item, query))
+            .slice(0, 8)
+            .map((item) => (
+              <ListItem
+                key={item.id}
+                icon="ticket-outline"
+                title={item.horseName}
+                meta={`${item.raceName} · ${item.tournamentName}`}
+                badge={`${item.stakeAmount.toLocaleString('vi-VN')}đ · ${item.status}`}
+              />
+            ))}
+          {!data.bets?.length ? <EmptyText text="Chưa có vé cược." /> : null}
+        </Section>
+
         <Section title="Tin tức mới">
           {(data.news || [])
             .filter((item) => matchesQuery(item, query))
