@@ -1,19 +1,52 @@
 import { apiRequest } from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
 
+const RACE_STATUS_CODES = {
+  'Sắp chạy': 'SCHEDULED',
+  'Sắp diễn ra': 'SCHEDULED',
+  'Đã lên lịch': 'SCHEDULED',
+  'Đang chạy': 'ONGOING',
+  'Đang diễn ra': 'ONGOING',
+  'Hoàn thành': 'RESULT_CONFIRMED',
+  'Đã chốt kết quả': 'RESULT_CONFIRMED',
+  'Đã hủy': 'CANCELLED',
+};
+
+const TOURNAMENT_STATUS_CODES = {
+  'Đang diễn ra': 'ONGOING',
+  'Đã lên lịch': 'SCHEDULED',
+  'Đã đóng đăng ký': 'REGISTRATION_CLOSED',
+  'Đang mở đăng ký': 'OPEN_REGISTRATION',
+  'Đã kết thúc': 'COMPLETED',
+  'Đã hủy': 'CANCELLED',
+};
+
+function normalizeCode(value, aliases) {
+  const raw = String(value || '').trim();
+  return aliases[raw] || raw.toUpperCase();
+}
+
 function mapRace(race) {
   if (!race) return null;
+
+  const statusCode = normalizeCode(race.statusCode || race.status, RACE_STATUS_CODES);
+  const tournamentStatus = race.tournamentStatus || '';
+  const tournamentStatusCode = normalizeCode(tournamentStatus, TOURNAMENT_STATUS_CODES);
 
   return {
     id: String(race.id || race.raceId || race._id || ''),
     name: race.name || race.raceName || 'Cuộc đua',
     tournamentName: race.tournamentName || '',
-    status: race.status || race.statusCode || 'Chưa cập nhật',
+    status: race.statusLabel || race.status || race.statusCode || 'Chưa cập nhật',
+    statusCode,
+    tournamentStatus,
+    tournamentStatusCode,
     scheduledStartAt: race.scheduledStartAt || race.startAt || race.raceDate || '',
     checkedInCount: Number(race.checkedInCount || 0),
     pendingCheckInCount: Number(race.pendingCheckInCount || 0),
     participantCount: Number(race.participantCount || race.approvedParticipantCount || 0),
     location: race.location || race.track || '',
+    canStart: statusCode === 'SCHEDULED' && tournamentStatusCode === 'ONGOING',
   };
 }
 
@@ -61,6 +94,11 @@ export const refereeService = {
     return (Array.isArray(races) ? races : []).map(mapRace).filter(Boolean);
   },
 
+  async startRace(id) {
+    const race = await apiRequest(ENDPOINTS.referee.startRace(id), { method: 'PUT' });
+    return mapRace(race);
+  },
+
   async listPayments() {
     const payments = await apiRequest(ENDPOINTS.referee.payments);
     return (Array.isArray(payments) ? payments : []).map(mapPayment).filter(Boolean);
@@ -80,4 +118,3 @@ export const refereeService = {
     return mapInvitation(invitation);
   },
 };
-

@@ -31,6 +31,7 @@ export const ENDPOINTS = {
   referee: {
     dashboard: '/referee/dashboard',
     races: '/referee/races',
+    startRace: (id) => `/referee/races/${id}/start`,
     payments: '/referee/payments',
     invitations: '/referee/invitations',
     acceptInvitation: (id) => `/referee/invitations/${id}/accept`,

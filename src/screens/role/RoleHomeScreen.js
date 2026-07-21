@@ -178,6 +178,26 @@ export default function RoleHomeScreen({ user, onLogout }) {
     }
   }
 
+  async function handleStartRace(id) {
+    try {
+      const updated = await refereeService.startRace(id);
+      setData((current) => ({
+        ...current,
+        races: (current.races || []).map((item) =>
+          item.id === id ? { ...item, ...updated } : item,
+        ),
+        dashboard: {
+          ...current.dashboard,
+          upcomingRaces: (current.dashboard?.upcomingRaces || []).map((item) =>
+            item.id === id ? { ...item, ...updated } : item,
+          ),
+        },
+      }));
+    } catch (requestError) {
+      setError(requestError.message || 'Không bắt đầu được cuộc đua.');
+    }
+  }
+
   async function handleOwnerInvitationCancel(id) {
     try {
       const updated = await ownerService.cancelJockeyInvitation(id);
@@ -222,7 +242,9 @@ export default function RoleHomeScreen({ user, onLogout }) {
             {activeTab === 'overview' ? (
               <Overview role={role} stats={stats} data={data} query={query} />
             ) : null}
-            {activeTab === 'schedule' ? <Schedule role={role} data={data} query={query} /> : null}
+            {activeTab === 'schedule' ? (
+              <Schedule role={role} data={data} query={query} onStartRace={handleStartRace} />
+            ) : null}
             {activeTab === 'tasks' ? (
               <Tasks
                 role={role}
@@ -407,7 +429,7 @@ function Overview({ role, stats, data, query }) {
   );
 }
 
-function Schedule({ role, data, query }) {
+function Schedule({ role, data, query, onStartRace }) {
   if (role === 'OWNER') {
     return (
       <Section title="Đăng ký của chủ ngựa">
@@ -446,13 +468,21 @@ function Schedule({ role, data, query }) {
     return (
       <Section title="Race được phân công">
         {(data.races || []).filter((item) => matchesQuery(item, query)).map((item) => (
-          <ListItem
-            key={item.id}
-            icon="flag-outline"
-            title={item.name}
-            meta={`${item.tournamentName || 'Giải đấu'} · ${item.pendingCheckInCount} chờ check-in`}
-            badge={item.status}
-          />
+          <View key={item.id} style={styles.invitationItem}>
+            <ListItem
+              icon="flag-outline"
+              title={item.name}
+              meta={`${item.tournamentName || 'Giải đấu'} · ${item.checkedInCount}/${item.participantCount} đã check-in`}
+              badge={item.status}
+            />
+            {item.canStart ? (
+              <View style={styles.invitationActions}>
+                <Pressable style={styles.primaryAction} onPress={() => onStartRace(item.id)}>
+                  <Text style={styles.primaryActionText}>Bắt đầu cuộc đua</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
         ))}
         {!data.races?.length ? <EmptyText text="Chưa có race được phân công." /> : null}
       </Section>
