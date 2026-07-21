@@ -58,8 +58,10 @@ function formatDate(value) {
 
 async function loadDataForRole(role) {
   if (role === 'OWNER') {
-    const [dashboard, openTournaments, registrations, horses, invitations, news] = await Promise.all([
+    const [dashboard, profile, results, openTournaments, registrations, horses, invitations, news] = await Promise.all([
       ownerService.getDashboard(),
+      ownerService.getProfile(),
+      ownerService.getResults(),
       tournamentService.listOwnerOpen(),
       ownerService.listRaceRegistrations(),
       ownerService.listHorses(),
@@ -67,7 +69,7 @@ async function loadDataForRole(role) {
       newsService.list(),
     ]);
 
-    return { dashboard, openTournaments, registrations, horses, invitations, news };
+    return { dashboard, profile, results, openTournaments, registrations, horses, invitations, news };
   }
 
   if (role === 'JOCKEY') {
@@ -219,6 +221,20 @@ export default function RoleHomeScreen({ user, onLogout }) {
     }
   }
 
+  async function handleOwnerRegistrationWithdraw(id) {
+    try {
+      const updated = await ownerService.withdrawRegistration(id);
+      setData((current) => ({
+        ...current,
+        registrations: (current.registrations || []).map((item) =>
+          item.id === id ? { ...item, ...updated } : item,
+        ),
+      }));
+    } catch (requestError) {
+      setError(requestError.message || 'Không rút được đăng ký race.');
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.app}>
@@ -250,7 +266,13 @@ export default function RoleHomeScreen({ user, onLogout }) {
               <Overview role={role} stats={stats} data={data} query={query} />
             ) : null}
             {activeTab === 'schedule' ? (
-              <Schedule role={role} data={data} query={query} onStartRace={handleStartRace} />
+              <Schedule
+                role={role}
+                data={data}
+                query={query}
+                onOwnerRegistrationWithdraw={handleOwnerRegistrationWithdraw}
+                onStartRace={handleStartRace}
+              />
             ) : null}
             {activeTab === 'tasks' ? (
               <Tasks
@@ -453,18 +475,29 @@ function Overview({ role, stats, data, query }) {
   );
 }
 
-function Schedule({ role, data, query, onStartRace }) {
+function Schedule({ role, data, query, onOwnerRegistrationWithdraw, onStartRace }) {
   if (role === 'OWNER') {
     return (
       <Section title="Đăng ký của chủ ngựa">
         {(data.registrations || []).filter((item) => matchesQuery(item, query)).map((item) => (
-          <ListItem
-            key={item.id}
-            icon="reader-outline"
-            title={item.tournamentName || item.raceName || 'Đăng ký'}
-            meta={`${item.horseName || 'Chưa chọn ngựa'} · ${item.status}`}
-            badge={item.jockeyName || 'Chưa có jockey'}
-          />
+          <View key={item.id} style={styles.invitationItem}>
+            <ListItem
+              icon="reader-outline"
+              title={item.tournamentName || item.raceName || 'Đăng ký'}
+              meta={`${item.horseName || 'Chưa chọn ngựa'} · ${item.status}`}
+              badge={item.jockeyName || 'Chưa có jockey'}
+            />
+            {item.canWithdraw ? (
+              <View style={styles.invitationActions}>
+                <Pressable
+                  style={styles.secondaryAction}
+                  onPress={() => onOwnerRegistrationWithdraw(item.id)}
+                >
+                  <Text style={styles.secondaryActionText}>Rút đăng ký</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
         ))}
         {!data.registrations?.length ? <EmptyText text="Chưa có đăng ký nào." /> : null}
       </Section>

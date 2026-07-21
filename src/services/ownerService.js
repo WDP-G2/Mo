@@ -4,6 +4,7 @@ import { mapHorse } from './horseService';
 
 function mapRegistration(item) {
   if (!item) return null;
+  const status = item.status || item.approval || 'Chờ duyệt';
 
   return {
     id: String(item.id || item._id || ''),
@@ -15,8 +16,9 @@ function mapRegistration(item) {
     horseName: item.horseName || item.horse || '',
     jockeyId: item.jockeyId || '',
     jockeyName: item.jockeyName || item.jockey || '',
-    status: item.status || item.approval || 'Chờ duyệt',
+    status,
     createdAt: item.createdAt || item.registeredAt || '',
+    canWithdraw: ['Chờ duyệt', 'Đã duyệt'].includes(status),
   };
 }
 
@@ -42,6 +44,14 @@ function mapInvitation(item) {
 }
 
 export const ownerService = {
+  getProfile() {
+    return apiRequest(ENDPOINTS.owner.profile);
+  },
+
+  getResults() {
+    return apiRequest(ENDPOINTS.owner.results);
+  },
+
   async getDashboard() {
     const dashboard = await apiRequest(ENDPOINTS.owner.dashboard);
     return {
@@ -62,6 +72,17 @@ export const ownerService = {
       .filter(Boolean);
   },
 
+  async withdrawRegistration(id) {
+    const registration = await apiRequest(ENDPOINTS.owner.withdrawRegistration(id), {
+      method: 'PUT',
+    });
+    return mapRegistration(registration);
+  },
+
+  listAcceptedRacesForJockey(id) {
+    return apiRequest(ENDPOINTS.owner.acceptedRacesForJockey(id));
+  },
+
   async listJockeyInvitations() {
     const invitations = await apiRequest(ENDPOINTS.owner.jockeyInvitations);
     return (Array.isArray(invitations) ? invitations : []).map(mapInvitation).filter(Boolean);
@@ -74,4 +95,3 @@ export const ownerService = {
     return mapInvitation(invitation);
   },
 };
-

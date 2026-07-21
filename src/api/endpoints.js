@@ -48,10 +48,14 @@ export const ENDPOINTS = {
     rejectInvitation: (id) => `/referee/invitations/${id}/reject`,
   },
   owner: {
+    profile: '/owner/profile',
+    results: '/owner/results',
     dashboard: '/owner/dashboard',
     horses: '/owner/horses',
     raceRegistrations: '/owner/race-registrations',
+    withdrawRegistration: (id) => `/owner/race-registrations/${id}/withdraw`,
     jockeyInvitations: '/owner/jockey-invitations',
+    acceptedRacesForJockey: (id) => `/owner/jockeys/${id}/accepted-races`,
     cancelJockeyInvitation: (id) => `/owner/jockey-invitations/${id}/cancel`,
   },
   spectator: {
