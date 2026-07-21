@@ -44,6 +44,16 @@ export const ENDPOINTS = {
     dashboard: '/referee/dashboard',
     races: '/referee/races',
     startRace: (id) => `/referee/races/${id}/start`,
+    participants: (raceId) => `/referee/races/${raceId}/participants`,
+    participantGate: (raceId, participantId) =>
+      `/referee/races/${raceId}/participants/${participantId}/gate`,
+    participantCheckIn: (raceId, participantId) =>
+      `/referee/races/${raceId}/participants/${participantId}/check-in`,
+    simulation: (raceId) => `/referee/races/${raceId}/simulation`,
+    confirmSimulation: (raceId) => `/referee/races/${raceId}/simulation/confirm`,
+    finalizeResults: (raceId) => `/referee/races/${raceId}/results/finalize`,
+    violations: '/referee/violations',
+    raceViolations: (raceId) => `/referee/races/${raceId}/violations`,
     payments: '/referee/payments',
     invitations: '/referee/invitations',
     acceptInvitation: (id) => `/referee/invitations/${id}/accept`,

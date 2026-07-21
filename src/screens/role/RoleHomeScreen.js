@@ -94,8 +94,9 @@ async function loadDataForRole(role) {
       refereeService.listPayments(),
       newsService.list(),
     ]);
+    const participants = await refereeService.listParticipantsForRaces(races);
 
-    return { dashboard, races, invitations, payments, news };
+    return { dashboard, races, participants, invitations, payments, news };
   }
 
   if (role === 'SPECTATOR') {
@@ -209,6 +210,22 @@ export default function RoleHomeScreen({ user, onLogout }) {
     }
   }
 
+  async function handleParticipantCheckIn(raceId, participantId, status) {
+    try {
+      const updated = await refereeService.checkInParticipant(raceId, participantId, status);
+      setData((current) => ({
+        ...current,
+        participants: (current.participants || []).map((item) =>
+          item.id === participantId
+            ? { ...item, ...updated, raceId: item.raceId, raceName: item.raceName, tournamentName: item.tournamentName }
+            : item,
+        ),
+      }));
+    } catch (requestError) {
+      setError(requestError.message || 'Không check-in được participant.');
+    }
+  }
+
   async function handleOwnerInvitationCancel(id) {
     try {
       const updated = await ownerService.cancelJockeyInvitation(id);
@@ -283,6 +300,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
                 query={query}
                 onOwnerInvitationCancel={handleOwnerInvitationCancel}
                 onInvitationResponse={handleInvitationResponse}
+                onParticipantCheckIn={handleParticipantCheckIn}
                 onRefereeInvitationResponse={handleRefereeInvitationResponse}
               />
             ) : null}
@@ -587,6 +605,7 @@ function Tasks({
   query,
   onOwnerInvitationCancel,
   onInvitationResponse,
+  onParticipantCheckIn,
   onRefereeInvitationResponse,
 }) {
   if (role === 'OWNER') {
@@ -695,6 +714,36 @@ function Tasks({
             />
           ))}
           {!data.payments?.length ? <EmptyText text="Chưa có dữ liệu thù lao." /> : null}
+        </Section>
+
+        <Section title="Check-in participant">
+          {(data.participants || []).filter((item) => matchesQuery(item, query)).slice(0, 12).map((item) => (
+            <View key={item.id} style={styles.invitationItem}>
+              <ListItem
+                icon="checkmark-circle-outline"
+                title={item.horseName}
+                meta={`${item.raceName} · ${item.jockeyName || 'Jockey'} · Cổng ${item.gateNumber || '-'}`}
+                badge={item.checkInStatus}
+              />
+              {item.canCheckIn ? (
+                <View style={styles.invitationActions}>
+                  <Pressable
+                    style={styles.secondaryAction}
+                    onPress={() => onParticipantCheckIn(item.raceId, item.id, 'ABSENT')}
+                  >
+                    <Text style={styles.secondaryActionText}>Vắng mặt</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.primaryAction}
+                    onPress={() => onParticipantCheckIn(item.raceId, item.id, 'CHECKED_IN')}
+                  >
+                    <Text style={styles.primaryActionText}>Check-in</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+          ))}
+          {!data.participants?.length ? <EmptyText text="Chưa có participant cần check-in." /> : null}
         </Section>
       </View>
     );

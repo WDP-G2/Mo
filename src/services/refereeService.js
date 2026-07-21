@@ -76,6 +76,25 @@ function mapPayment(payment) {
   };
 }
 
+function mapParticipant(participant, race) {
+  if (!participant) return null;
+
+  return {
+    id: String(participant.id || participant.participantId || participant._id || ''),
+    raceId: race?.id || '',
+    raceName: race?.name || 'Race',
+    tournamentName: race?.tournamentName || '',
+    horseName: participant.horseName || 'Ngựa',
+    ownerName: participant.ownerUsername || participant.ownerName || 'Chủ ngựa',
+    jockeyName: participant.jockeyUsername || participant.jockeyName || 'Jockey',
+    gateNumber: participant.gateNumber ?? null,
+    status: participant.status || 'REGISTERED',
+    checkInStatus: participant.checkInStatus || 'PENDING',
+    note: participant.note || '',
+    canCheckIn: race?.statusCode === 'SCHEDULED' && participant.checkInStatus !== 'CHECKED_IN',
+  };
+}
+
 export const refereeService = {
   async getDashboard() {
     const dashboard = await apiRequest(ENDPOINTS.referee.dashboard);
@@ -97,6 +116,57 @@ export const refereeService = {
   async startRace(id) {
     const race = await apiRequest(ENDPOINTS.referee.startRace(id), { method: 'PUT' });
     return mapRace(race);
+  },
+
+  async listParticipants(race) {
+    const participants = await apiRequest(ENDPOINTS.referee.participants(race.id));
+    return (Array.isArray(participants) ? participants : [])
+      .map((participant) => mapParticipant(participant, race))
+      .filter(Boolean);
+  },
+
+  async listParticipantsForRaces(races) {
+    const chunks = await Promise.all((races || []).slice(0, 8).map((race) => this.listParticipants(race)));
+    return chunks.flat();
+  },
+
+  async checkInParticipant(raceId, participantId, status = 'CHECKED_IN') {
+    const participant = await apiRequest(ENDPOINTS.referee.participantCheckIn(raceId, participantId), {
+      method: 'PUT',
+      body: { status },
+    });
+    return mapParticipant(participant, { id: raceId });
+  },
+
+  updateParticipantGate(raceId, participantId, gateNumber) {
+    return apiRequest(ENDPOINTS.referee.participantGate(raceId, participantId), {
+      method: 'PUT',
+      body: { gateNumber },
+    });
+  },
+
+  generateSimulation(raceId) {
+    return apiRequest(ENDPOINTS.referee.simulation(raceId), { method: 'POST' });
+  },
+
+  confirmSimulation(raceId, runId) {
+    return apiRequest(ENDPOINTS.referee.confirmSimulation(raceId), {
+      method: 'POST',
+      headers: { 'Idempotency-Key': `simulation-confirm-${raceId}-${runId || Date.now()}` },
+      body: { runId },
+    });
+  },
+
+  finalizeResults(raceId, results) {
+    return apiRequest(ENDPOINTS.referee.finalizeResults(raceId), {
+      method: 'POST',
+      headers: { 'Idempotency-Key': `finalize-${raceId}-${Date.now()}` },
+      body: { results },
+    });
+  },
+
+  listViolations() {
+    return apiRequest(ENDPOINTS.referee.violations);
   },
 
   async listPayments() {
