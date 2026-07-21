@@ -5,6 +5,34 @@ function deriveUsername(email) {
   return String(email || '').split('@')[0] || '';
 }
 
+function normalizeAuthResponse(auth) {
+  if (!auth) return auth;
+  if (auth.user) return auth;
+
+  return {
+    token: auth.token || null,
+    tokenType: auth.tokenType || 'Bearer',
+    user: {
+      id: auth.userId || auth.id || '',
+      userId: auth.userId || auth.id || '',
+      username: auth.username || '',
+      fullName: auth.fullName || auth.name || '',
+      name: auth.fullName || auth.name || '',
+      email: auth.email || '',
+      phone: auth.phone || '',
+      role: auth.role || '',
+      active: auth.active,
+      pendingRole: auth.pendingRole || null,
+      roleApprovalStatus: auth.roleApprovalStatus || '',
+      roleReviewReason: auth.roleReviewReason || '',
+      roleReviewedBy: auth.roleReviewedBy || null,
+      roleReviewedAt: auth.roleReviewedAt || null,
+      avatarUrl: auth.avatarUrl || '',
+      location: auth.location || '',
+    },
+  };
+}
+
 export const authService = {
   register(payload) {
     return apiRequest(ENDPOINTS.auth.register, {
@@ -19,11 +47,12 @@ export const authService = {
     });
   },
 
-  login(payload) {
-    return apiRequest(ENDPOINTS.auth.login, {
+  async login(payload) {
+    const auth = await apiRequest(ENDPOINTS.auth.login, {
       method: 'POST',
       body: payload,
     });
+    return normalizeAuthResponse(auth);
   },
 
   getMe() {
