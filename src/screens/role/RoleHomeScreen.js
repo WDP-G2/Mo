@@ -1142,6 +1142,104 @@ export default function RoleHomeScreen({ user, onLogout }) {
             </View>
           </View>
         </Modal>
+
+        {/* Modal: Báo cáo vi phạm */}
+        <Modal visible={violationModalVisible} transparent={true} animationType="fade" onRequestClose={() => setViolationModalVisible(false)}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              {selectedViolationRace && (
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalTitle}>Lập biên bản vi phạm</Text>
+                  <Text style={styles.modalLabel}>Race: {selectedViolationRace.name}</Text>
+                  
+                  <ScrollView>
+                    <Text style={styles.modalLabel}>Chọn Jockey/Ngựa vi phạm:</Text>
+                    <View style={styles.modalSelector}>
+                      {(violationParticipants || []).map((p) => {
+                        const active = violationForm.participantId === p.id;
+                        return (
+                          <Pressable
+                            key={p.id}
+                            style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
+                            onPress={() => setViolationForm(curr => ({ ...curr, participantId: p.id }))}
+                          >
+                            <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
+                              {p.horseName} (Nài: {p.jockeyName})
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
+                    <Text style={styles.modalLabel}>Loại vi phạm:</Text>
+                    <View style={styles.modalSelector}>
+                      {['Cản trở đối thủ', 'Lấn làn', 'Xuất phát sớm', 'Khác'].map((t) => {
+                        const active = violationForm.type === t;
+                        return (
+                          <Pressable
+                            key={t}
+                            style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
+                            onPress={() => setViolationForm(curr => ({ ...curr, type: t }))}
+                          >
+                            <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
+                              {t}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
+                    <Text style={styles.modalLabel}>Mức độ nghiêm trọng:</Text>
+                    <View style={styles.modalSelector}>
+                      {['Phạt nhẹ', 'Phạt cảnh cáo', 'Nghiêm trọng'].map((s) => {
+                        const active = violationForm.severity === s;
+                        return (
+                          <Pressable
+                            key={s}
+                            style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
+                            onPress={() => setViolationForm(curr => ({ ...curr, severity: s }))}
+                          >
+                            <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
+                              {s}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
+                    <Text style={styles.modalLabel}>Hình phạt đề xuất:</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="Ví dụ: Phạt tiền, Cảnh cáo..."
+                      placeholderTextColor={colors.darkTextMuted}
+                      value={violationForm.penalty}
+                      onChangeText={(val) => setViolationForm(curr => ({ ...curr, penalty: val }))}
+                    />
+
+                    <Text style={styles.modalLabel}>Mô tả chi tiết lỗi vi phạm:</Text>
+                    <TextInput
+                      style={[styles.modalInput, { minHeight: 60 }]}
+                      multiline
+                      placeholder="Nhập mô tả lỗi vi phạm..."
+                      placeholderTextColor={colors.darkTextMuted}
+                      value={violationForm.description}
+                      onChangeText={(val) => setViolationForm(curr => ({ ...curr, description: val }))}
+                    />
+
+                    <View style={styles.modalButtonRow}>
+                      <Pressable style={styles.secondaryAction} onPress={() => setViolationModalVisible(false)}>
+                        <Text style={styles.secondaryActionText}>Hủy</Text>
+                      </Pressable>
+                      <Pressable style={styles.primaryAction} onPress={submitViolation}>
+                        <Text style={styles.primaryActionText}>Lập biên bản</Text>
+                      </Pressable>
+                    </View>
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
