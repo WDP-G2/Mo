@@ -188,9 +188,27 @@ async function runTests() {
   });
 
   // 4. KIỂM THỬ CHỨC NĂNG TRỌNG TÀI (REFEREE FLOWS)
+  let assignedRaces = [];
   await testStep('Trọng tài: Lấy danh sách race được phân công', async () => {
     const list = await getRequest(`${API_BASE_URL}/referee/races`, refereeToken);
     if (!Array.isArray(list)) throw new Error('Dữ liệu race phân công không hợp lệ');
+    assignedRaces = list;
+  });
+
+  await testStep('Trọng tài: Lập biên bản vi phạm lỗi', async () => {
+    if (assignedRaces.length === 0) return;
+    const race = assignedRaces[0];
+    const payload = {
+      participantId: '',
+      horseNo: 1,
+      type: 'Cản trở đối thủ',
+      severity: 'Phạt nhẹ',
+      description: 'Lấn đường đua bất hợp pháp',
+      penalty: 'Cảnh cáo',
+      occurredAt: new Date().toISOString()
+    };
+    const res = await postRequest(`${API_BASE_URL}/referee/races/${race.id}/violations`, payload, refereeToken);
+    if (!res) throw new Error('Không lập được biên bản vi phạm');
   });
 
   await testStep('Trọng tài: Xem lịch sử vi phạm đã xử lý', async () => {
