@@ -8,6 +8,8 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
