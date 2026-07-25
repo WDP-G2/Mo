@@ -1361,6 +1361,7 @@ function Schedule({
   onStartRace,
   onOpenBetModal,
   onOpenRefereeRaceModal,
+  onOpenViolationModal,
 }) {
   if (role === 'OWNER') {
     return (
@@ -1432,6 +1433,11 @@ function Schedule({
                 </Pressable>
               </View>
             ) : null}
+            <View style={styles.invitationActions}>
+              <Pressable style={styles.secondaryAction} onPress={() => onOpenViolationModal(item)}>
+                <Text style={styles.secondaryActionText}>Báo cáo vi phạm</Text>
+              </Pressable>
+            </View>
           </View>
         ))}
         {!data.races?.length ? <EmptyText text="Chưa có race được phân công." /> : null}
