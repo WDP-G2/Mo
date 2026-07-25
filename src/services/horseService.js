@@ -28,4 +28,19 @@ export const horseService = {
     const list = await apiRequest(ENDPOINTS.horses.list, { params: { mine: true } });
     return (Array.isArray(list) ? list : []).map(mapHorse).filter(Boolean);
   },
+
+  async create(payload) {
+    const horse = await apiRequest('/owner/horses', {
+      method: 'POST',
+      body: {
+        name: payload.name,
+        breed: payload.breed,
+        age: Number(payload.age),
+        healthStatus: payload.healthStatus || 'Khỏe mạnh',
+        racingStatus: payload.racingStatus || 'can-race'
+      }
+    });
+    return mapHorse(horse);
+  }
 };
+
