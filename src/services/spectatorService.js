@@ -128,7 +128,7 @@ export const spectatorService = {
   },
 
   async payCardDeposit(orderId, cardInfo) {
-    return apiRequest(`/wallets/me/deposit-orders/${orderId}/pay-card`, {
+    return apiRequest(`/wallets/me/deposit-orders/${orderId}/pay-with-card`, {
       method: 'POST',
       body: {
         cardNumber: cardInfo.cardNumber,
