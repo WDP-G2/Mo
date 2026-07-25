@@ -599,7 +599,21 @@ export default function RoleHomeScreen({ user, onLogout }) {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
             {activeTab !== 'account' ? <SearchBox query={query} onChangeQuery={setQuery} /> : null}
             {activeTab === 'overview' ? (
-              <Overview role={role} stats={stats} data={data} query={query} />
+              <Overview
+                role={role}
+                stats={stats}
+                data={data}
+                query={query}
+                onOpenDepositModal={() => setDepositModalVisible(true)}
+                onOpenHorseModal={() => setHorseModalVisible(true)}
+                onOpenInviteModal={openInviteModal}
+                onOpenRegisterModal={openRegisterModal}
+                onOpenBetModal={(market) => {
+                  setSelectedMarket(market);
+                  setSelectedOption(market.options[0] || null);
+                  setBetModalVisible(true);
+                }}
+              />
             ) : null}
             {activeTab === 'schedule' ? (
               <Schedule
@@ -608,6 +622,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
                 query={query}
                 onOwnerRegistrationWithdraw={handleOwnerRegistrationWithdraw}
                 onStartRace={handleStartRace}
+                onOpenBetModal={(market) => {
+                  setSelectedMarket(market);
+                  setSelectedOption(market.options[0] || null);
+                  setBetModalVisible(true);
+                }}
+                onOpenRefereeRaceModal={openRefereeRaceModal}
               />
             ) : null}
             {activeTab === 'tasks' ? (
