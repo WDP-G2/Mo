@@ -94,4 +94,19 @@ export const ownerService = {
     });
     return mapInvitation(invitation);
   },
+
+  async createJockeyInvitation(payload) {
+    const invitation = await apiRequest('/owner/jockey-invitations', {
+      method: 'POST',
+      body: {
+        horseId: payload.horseId,
+        raceId: payload.raceId,
+        jockeyId: payload.jockeyId,
+        message: payload.message || '',
+        remunerationAmount: Number(payload.remunerationAmount || 0),
+      }
+    });
+    return mapInvitation(invitation);
+  }
 };
+
