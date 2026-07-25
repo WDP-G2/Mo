@@ -169,6 +169,21 @@ export const refereeService = {
     return apiRequest(ENDPOINTS.referee.violations);
   },
 
+  async createViolation(raceId, payload) {
+    return apiRequest(`/referee/races/${raceId}/violations`, {
+      method: 'POST',
+      body: {
+        participantId: payload.participantId,
+        horseNo: Number(payload.gateNumber || payload.horseNo || 0),
+        type: payload.type || 'Khác',
+        severity: payload.severity || 'Phạt nhẹ',
+        description: payload.description || '',
+        penalty: payload.penalty || '',
+        occurredAt: new Date().toISOString()
+      }
+    });
+  },
+
   async listPayments() {
     const payments = await apiRequest(ENDPOINTS.referee.payments);
     return (Array.isArray(payments) ? payments : []).map(mapPayment).filter(Boolean);
