@@ -575,6 +575,51 @@ export default function RoleHomeScreen({ user, onLogout }) {
     } finally {
       setLoading(false);
     }
+  // Open Violation Modal Handler
+  async function openViolationModal(race) {
+    setSelectedViolationRace(race);
+    try {
+      setLoading(true);
+      const list = await refereeService.listParticipants(race);
+      setViolationParticipants(list || []);
+      setViolationForm({
+        participantId: list[0]?.id || '',
+        gateNumber: list[0]?.gateNumber ? String(list[0].gateNumber) : '1',
+        type: 'Cản trở đối thủ',
+        severity: 'Phạt nhẹ',
+        description: '',
+        penalty: ''
+      });
+      setViolationModalVisible(true);
+    } catch (err) {
+      Alert.alert('Lỗi', 'Không tải được danh sách người tham gia cuộc đua.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Submit Violation Handler
+  async function submitViolation() {
+    if (!selectedViolationRace) return;
+    if (!violationForm.participantId) {
+      Alert.alert('Lỗi', 'Vui lòng chọn Jockey/Ngựa vi phạm.');
+      return;
+    }
+    try {
+      setLoading(true);
+      const selectedPart = violationParticipants.find(p => p.id === violationForm.participantId);
+      await refereeService.createViolation(selectedViolationRace.id, {
+        ...violationForm,
+        gateNumber: selectedPart?.gateNumber || violationForm.gateNumber
+      });
+      Alert.alert('Thành công', 'Đã lập biên bản vi phạm thành công.');
+      setViolationModalVisible(false);
+      refreshData();
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Không lập được biên bản vi phạm.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
