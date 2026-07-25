@@ -679,6 +679,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
                   setBetModalVisible(true);
                 }}
                 onOpenRefereeRaceModal={openRefereeRaceModal}
+                onOpenViolationModal={openViolationModal}
               />
             ) : null}
             {activeTab === 'tasks' ? (
