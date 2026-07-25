@@ -288,6 +288,289 @@ export default function RoleHomeScreen({ user, onLogout }) {
     }
   }
 
+  // Place Bet Handler
+  async function submitPlaceBet() {
+    if (!selectedMarket || !selectedOption || !betAmount) {
+      Alert.alert('Lỗi', 'Vui lòng chọn ngựa và nhập số tiền cược.');
+      return;
+    }
+    const amount = Number(betAmount);
+    if (isNaN(amount) || amount < selectedMarket.minStake || amount > selectedMarket.maxStake) {
+      Alert.alert('Lỗi', `Số tiền phải từ ${selectedMarket.minStake.toLocaleString()}đ đến ${selectedMarket.maxStake.toLocaleString()}đ.`);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await spectatorService.placeBet(selectedMarket.raceId, {
+        participantId: selectedOption.participantId,
+        stakeAmount: amount,
+        idempotencyKey: 'bet-' + Date.now(),
+      });
+      Alert.alert('Thành công', 'Đã đặt cược thành công.');
+      setBetModalVisible(false);
+      setBetAmount('');
+      setSelectedOption(null);
+      refreshData();
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Không đặt được cược.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Wallet Deposit Handler
+  async function submitDeposit() {
+    const amount = Number(depositAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Lỗi', 'Vui lòng nhập số tiền nạp hợp lệ.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const order = await spectatorService.createDeposit(amount);
+      if (!order || !order.id) {
+        throw new Error('Không tạo được lệnh nạp tiền.');
+      }
+      
+      // Pay using card details
+      await spectatorService.payCardDeposit(order.id, cardInfo);
+      Alert.alert('Thành công', `Đã nạp thành công ${amount.toLocaleString()}đ vào ví.`);
+      setDepositModalVisible(false);
+      setDepositAmount('');
+      refreshData();
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Thanh toán thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Create Horse Handler
+  async function submitCreateHorse() {
+    if (!newHorse.name || !newHorse.breed || !newHorse.age) {
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin ngựa.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await horseService.create(newHorse);
+      Alert.alert('Thành công', `Đã thêm ngựa ${newHorse.name} thành công.`);
+      setHorseModalVisible(false);
+      setNewHorse({ name: '', breed: '', age: '', healthStatus: 'Khỏe mạnh' });
+      refreshData();
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Không thêm được ngựa.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Open Invite Modal Handler
+  async function openInviteModal() {
+    try {
+      setLoading(true);
+      const [horses, jockeys] = await Promise.all([
+        ownerService.listHorses(),
+        userService.list({ role: 'JOCKEY' })
+      ]);
+      setOwnerHorses(horses);
+      setAllJockeys(jockeys);
+
+      // Extract all open races across open tournaments
+      const tournaments = await tournamentService.list();
+      const openRaces = [];
+      (tournaments || []).forEach(t => {
+        (t.races || []).forEach(r => {
+          if (r.status === 'Đang mở đăng ký' || r.status === 'Sắp chạy' || r.status === 'Sắp diễn ra') {
+            openRaces.push({
+              id: r.id || r._id,
+              name: `Race R${r.raceNumber} · ${r.name}`,
+              tournamentName: t.name,
+              entryFee: r.entryFee
+            });
+          }
+        });
+      });
+      setOwnerOpenRaces(openRaces);
+
+      setInviteForm({
+        horseId: horses[0]?.id || '',
+        jockeyId: jockeys[0]?.id || '',
+        raceId: openRaces[0]?.id || '',
+        message: '',
+        remunerationAmount: openRaces[0]?.entryFee ? String(openRaces[0].entryFee) : '500000'
+      });
+      setInviteModalVisible(true);
+    } catch (err) {
+      Alert.alert('Lỗi', 'Không lấy được thông tin ngựa và jockey.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Create Jockey Invitation Handler
+  async function submitJockeyInvitation() {
+    if (!inviteForm.horseId || !inviteForm.jockeyId) {
+      Alert.alert('Lỗi', 'Vui lòng chọn ngựa và jockey.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await ownerService.createJockeyInvitation({
+        ...inviteForm,
+        idempotencyKey: 'invite-' + Date.now()
+      });
+      Alert.alert('Thành công', 'Đã gửi lời mời tới jockey thành công.');
+      setInviteModalVisible(false);
+      refreshData();
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Không gửi được lời mời.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Open Register Modal Handler
+  async function openRegisterModal() {
+    try {
+      setLoading(true);
+      const [tournaments, horses, jockeys] = await Promise.all([
+        tournamentService.list(),
+        ownerService.listHorses(),
+        userService.list({ role: 'JOCKEY' })
+      ]);
+      const openTournaments = (tournaments || []).filter(t => t.status === 'Đang mở đăng ký');
+      setOwnerTournaments(openTournaments);
+      setOwnerHorses(horses);
+      setRegisterJockeys(jockeys);
+
+      if (openTournaments.length > 0) {
+        const races = openTournaments[0].races || [];
+        setTournamentRaces(races);
+        setRegisterForm({
+          tournamentId: openTournaments[0].id || openTournaments[0]._id,
+          raceId: races[0]?.id || races[0]?._id || '',
+          horseId: horses[0]?.id || '',
+          jockeyId: jockeys[0]?.id || ''
+        });
+      } else {
+        setTournamentRaces([]);
+        setRegisterForm({ tournamentId: '', raceId: '', horseId: '', jockeyId: '' });
+      }
+      setRegisterModalVisible(true);
+    } catch (err) {
+      Alert.alert('Lỗi', 'Không lấy được thông tin đăng ký giải.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Change selected tournament in register form
+  function handleRegisterTournamentChange(tournamentId) {
+    const t = ownerTournaments.find(item => (item.id || item._id) === tournamentId);
+    const races = t ? (t.races || []) : [];
+    setTournamentRaces(races);
+    setRegisterForm(current => ({
+      ...current,
+      tournamentId,
+      raceId: races[0]?.id || races[0]?._id || ''
+    }));
+  }
+
+  // Submit Registration Handler
+  async function submitRegistration() {
+    if (!registerForm.tournamentId || !registerForm.raceId || !registerForm.horseId || !registerForm.jockeyId) {
+      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin đăng ký.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await ownerService.createRegistration(registerForm.tournamentId, {
+        raceId: registerForm.raceId,
+        horseId: registerForm.horseId,
+        jockeyId: registerForm.jockeyId
+      });
+      Alert.alert('Thành công', 'Đăng ký tham gia giải đấu thành công.');
+      setRegisterModalVisible(false);
+      refreshData();
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Đăng ký thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Open Referee Simulation Modal
+  function openRefereeRaceModal(race) {
+    setSelectedRefereeRace(race);
+    setSimulationResult(null);
+    setSimulationConfirmed(false);
+    setSimulationLoading(false);
+    setRefereeRaceModalVisible(true);
+  }
+
+  // Run Race Simulation Handler
+  async function runRaceSimulation() {
+    if (!selectedRefereeRace) return;
+    try {
+      setSimulationLoading(true);
+      const res = await refereeService.generateSimulation(selectedRefereeRace.id);
+      setSimulationResult(res);
+      
+      // Simulate playback loading
+      setTimeout(() => {
+        setSimulationLoading(false);
+      }, 2000);
+    } catch (err) {
+      setSimulationLoading(false);
+      Alert.alert('Lỗi', err.message || 'Mô phỏng thất bại.');
+    }
+  }
+
+  // Confirm Simulation Handler
+  async function confirmRaceSimulation() {
+    if (!selectedRefereeRace || !simulationResult) return;
+    try {
+      setLoading(true);
+      await refereeService.confirmSimulation(selectedRefereeRace.id, simulationResult.runId);
+      setSimulationConfirmed(true);
+      Alert.alert('Thành công', 'Đã xác nhận kết quả mô phỏng.');
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Xác nhận thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Finalize Race Results Handler
+  async function finalizeRaceResults() {
+    if (!selectedRefereeRace || !simulationResult) return;
+    try {
+      setLoading(true);
+      // Map results for finalization payload
+      const payload = (simulationResult.participants || []).map(p => ({
+        participantId: p.participantId,
+        rank: p.rank,
+        finishTimeMillis: p.finishTimeMillis,
+        status: 'FINISHED'
+      }));
+
+      await refereeService.finalizeResults(selectedRefereeRace.id, payload);
+      Alert.alert('Thành công', 'Đã chốt kết quả cuộc đua thành công.');
+      setRefereeRaceModalVisible(false);
+      refreshData();
+    } catch (err) {
+      Alert.alert('Lỗi', err.message || 'Chốt kết quả thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.app}>
