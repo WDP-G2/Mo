@@ -726,7 +726,17 @@ function matchesQuery(item, query) {
   );
 }
 
-function Overview({ role, stats, data, query }) {
+function Overview({
+  role,
+  stats,
+  data,
+  query,
+  onOpenDepositModal,
+  onOpenHorseModal,
+  onOpenInviteModal,
+  onOpenRegisterModal,
+  onOpenBetModal,
+}) {
   const title =
     role === 'OWNER'
       ? 'Quản lý ngựa, đăng ký giải và lời mời jockey'
@@ -744,6 +754,34 @@ function Overview({ role, stats, data, query }) {
           <Metric key={item.label} item={item} />
         ))}
       </View>
+
+      {/* Role Quick Actions */}
+      {role === 'SPECTATOR' && (
+        <View style={styles.quickActionsRow}>
+          <Pressable style={styles.primaryActionButton} onPress={onOpenDepositModal}>
+            <Ionicons name="wallet-outline" size={16} color="#1D1705" />
+            <Text style={styles.primaryActionTextButton}>Nạp tiền ví</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {role === 'OWNER' && (
+        <View style={styles.quickActionsRow}>
+          <Pressable style={[styles.primaryActionButton, { flex: 1 }]} onPress={onOpenHorseModal}>
+            <Ionicons name="add-circle-outline" size={16} color="#1D1705" />
+            <Text style={styles.primaryActionTextButton}>Thêm Ngựa</Text>
+          </Pressable>
+          <Pressable style={[styles.primaryActionButton, { flex: 1.2 }]} onPress={onOpenInviteModal}>
+            <Ionicons name="mail-outline" size={16} color="#1D1705" />
+            <Text style={styles.primaryActionTextButton}>Mời Jockey</Text>
+          </Pressable>
+          <Pressable style={[styles.primaryActionButton, { flex: 1.3 }]} onPress={onOpenRegisterModal}>
+            <Ionicons name="trophy-outline" size={16} color="#1D1705" />
+            <Text style={styles.primaryActionTextButton}>Đăng ký giải</Text>
+          </Pressable>
+        </View>
+      )}
+
       <Section title={role === 'OWNER' ? 'Giải đang mở đăng ký' : 'Tin nổi bật'}>
         {(role === 'OWNER' ? data.openTournaments : data.news)
           ?.filter((item) => matchesQuery(item, query))
@@ -797,15 +835,16 @@ function Overview({ role, stats, data, query }) {
         </Section>
       ) : null}
       {role === 'SPECTATOR' ? (
-        <Section title="Kèo cược đang mở">
+        <Section title="Kèo cược đang mở (Nhấn vào để đặt cược)">
           {(data.markets || []).filter((item) => matchesQuery(item, query)).slice(0, 4).map((item) => (
-            <ListItem
-              key={item.id}
-              icon="cash-outline"
-              title={item.raceName}
-              meta={`${item.tournamentName} · ${item.options.length} lựa chọn`}
-              badge={`${item.minStake.toLocaleString('vi-VN')}đ+`}
-            />
+            <Pressable key={item.id} onPress={() => onOpenBetModal(item)}>
+              <ListItem
+                icon="cash-outline"
+                title={item.raceName}
+                meta={`${item.tournamentName} · ${item.options.length} lựa chọn`}
+                badge={`${item.minStake.toLocaleString('vi-VN')}đ+`}
+              />
+            </Pressable>
           ))}
           {!data.markets?.length ? <EmptyText text="Chưa có kèo cược đang mở." /> : null}
         </Section>
