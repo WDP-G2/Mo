@@ -132,6 +132,38 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const role = roleOrSpectator(user?.role);
   const name = displayName(user);
 
+  // Modal States
+  const [betModalVisible, setBetModalVisible] = useState(false);
+  const [selectedMarket, setSelectedMarket] = useState(null);
+  const [betAmount, setBetAmount] = useState('');
+  const [selectedOption, setSelectedOption] = useState(null);
+
+  const [depositModalVisible, setDepositModalVisible] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [cardInfo, setCardInfo] = useState({ cardNumber: '4111111111111111', cardName: 'NGUYEN VAN A', expiry: '01/25', cvv: '123' });
+
+  const [horseModalVisible, setHorseModalVisible] = useState(false);
+  const [newHorse, setNewHorse] = useState({ name: '', breed: '', age: '', healthStatus: 'Khỏe mạnh' });
+
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ horseId: '', raceId: '', jockeyId: '', message: '', remunerationAmount: '' });
+  const [allJockeys, setAllJockeys] = useState([]);
+  const [ownerHorses, setOwnerHorses] = useState([]);
+  const [ownerOpenRaces, setOwnerOpenRaces] = useState([]);
+
+  const [registerModalVisible, setRegisterModalVisible] = useState(false);
+  const [registerForm, setRegisterForm] = useState({ tournamentId: '', raceId: '', horseId: '', jockeyId: '' });
+  const [ownerTournaments, setOwnerTournaments] = useState([]);
+  const [tournamentRaces, setTournamentRaces] = useState([]);
+  const [registerJockeys, setRegisterJockeys] = useState([]);
+
+  const [refereeRaceModalVisible, setRefereeRaceModalVisible] = useState(false);
+  const [selectedRefereeRace, setSelectedRefereeRace] = useState(null);
+  const [simulationLoading, setSimulationLoading] = useState(false);
+  const [simulationResult, setSimulationResult] = useState(null);
+  const [simulationConfirmed, setSimulationConfirmed] = useState(false);
+
+
   function refreshData() {
     let alive = true;
     setLoading(true);
