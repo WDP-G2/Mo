@@ -107,6 +107,20 @@ export const ownerService = {
       }
     });
     return mapInvitation(invitation);
+  },
+
+  async createRegistration(tournamentId, payload) {
+    const registration = await apiRequest(`/tournaments/${tournamentId}/owner/registrations`, {
+      method: 'POST',
+      body: {
+        raceId: payload.raceId,
+        horseId: payload.horseId,
+        jockeyId: payload.jockeyId,
+        fullName: payload.fullName || ''
+      }
+    });
+    return mapRegistration(registration);
   }
 };
+
 
