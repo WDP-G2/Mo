@@ -115,4 +115,28 @@ export const spectatorService = {
     });
     return mapBet(bet);
   },
+
+  async createDeposit(amount) {
+    return apiRequest('/wallets/me/deposit-orders', {
+      method: 'POST',
+      body: {
+        amount: Number(amount),
+        provider: 'ZALOPAY',
+        paymentChannel: 'VISA'
+      }
+    });
+  },
+
+  async payCardDeposit(orderId, cardInfo) {
+    return apiRequest(`/wallets/me/deposit-orders/${orderId}/pay-card`, {
+      method: 'POST',
+      body: {
+        cardNumber: cardInfo.cardNumber,
+        cardName: cardInfo.cardName,
+        expiry: cardInfo.expiry,
+        cvv: cardInfo.cvv
+      }
+    });
+  }
 };
+
