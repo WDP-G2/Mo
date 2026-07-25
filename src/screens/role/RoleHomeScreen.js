@@ -871,7 +871,15 @@ function Overview({
   );
 }
 
-function Schedule({ role, data, query, onOwnerRegistrationWithdraw, onStartRace }) {
+function Schedule({
+  role,
+  data,
+  query,
+  onOwnerRegistrationWithdraw,
+  onStartRace,
+  onOpenBetModal,
+  onOpenRefereeRaceModal,
+}) {
   if (role === 'OWNER') {
     return (
       <Section title="Đăng ký của chủ ngựa">
@@ -935,6 +943,13 @@ function Schedule({ role, data, query, onOwnerRegistrationWithdraw, onStartRace 
                 </Pressable>
               </View>
             ) : null}
+            {(item.statusCode === 'ONGOING' || item.status === 'Đang chạy' || item.status === 'Đang diễn ra') ? (
+              <View style={styles.invitationActions}>
+                <Pressable style={styles.primaryAction} onPress={() => onOpenRefereeRaceModal(item)}>
+                  <Text style={styles.primaryActionText}>Mô phỏng & Chốt kết quả</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         ))}
         {!data.races?.length ? <EmptyText text="Chưa có race được phân công." /> : null}
@@ -944,15 +959,16 @@ function Schedule({ role, data, query, onOwnerRegistrationWithdraw, onStartRace 
 
   if (role === 'SPECTATOR') {
     return (
-      <Section title="Kèo cược đang mở">
+      <Section title="Kèo cược đang mở (Nhấn vào để đặt cược)">
         {(data.markets || []).filter((item) => matchesQuery(item, query)).map((item) => (
-          <ListItem
-            key={item.id}
-            icon="cash-outline"
-            title={item.raceName}
-            meta={`${item.tournamentName} · ${item.options.length} cửa cược`}
-            badge={`${item.minStake.toLocaleString('vi-VN')}đ - ${item.maxStake.toLocaleString('vi-VN')}đ`}
-          />
+          <Pressable key={item.id} onPress={() => onOpenBetModal(item)}>
+            <ListItem
+              icon="cash-outline"
+              title={item.raceName}
+              meta={`${item.tournamentName} · ${item.options.length} cửa cược`}
+              badge={`${item.minStake.toLocaleString('vi-VN')}đ - ${item.maxStake.toLocaleString('vi-VN')}đ`}
+            />
+          </Pressable>
         ))}
         {!data.markets?.length ? <EmptyText text="Chưa có kèo cược đang mở." /> : null}
       </Section>
