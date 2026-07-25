@@ -163,6 +163,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [simulationResult, setSimulationResult] = useState(null);
   const [simulationConfirmed, setSimulationConfirmed] = useState(false);
 
+  // Referee Violation States
+  const [violationModalVisible, setViolationModalVisible] = useState(false);
+  const [selectedViolationRace, setSelectedViolationRace] = useState(null);
+  const [violationForm, setViolationForm] = useState({ participantId: '', gateNumber: '', type: 'Cản trở đối thủ', severity: 'Phạt nhẹ', description: '', penalty: '' });
+  const [violationParticipants, setViolationParticipants] = useState([]);
+
 
   function refreshData() {
     let alive = true;
