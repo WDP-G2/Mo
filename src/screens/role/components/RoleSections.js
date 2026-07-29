@@ -118,6 +118,64 @@ function buildJockeyScheduleItems(data) {
   return [...raceItems, ...acceptedItems];
 }
 
+function buildCalendarMarks(datedItems, selectedDate) {
+  const markedDates = {};
+
+  datedItems.forEach(({ dateKey }) => {
+    markedDates[dateKey] = {
+      customStyles: {
+        container: {
+          backgroundColor: '#991B1B',
+          borderWidth: selectedDate === dateKey ? 2 : 0,
+          borderColor: colors.primary,
+        },
+        text: { color: '#FFFFFF', fontWeight: '900' },
+      },
+    };
+  });
+
+  if (selectedDate && !markedDates[selectedDate]) {
+    markedDates[selectedDate] = {
+      customStyles: {
+        container: { backgroundColor: colors.primary },
+        text: { color: '#1D1705', fontWeight: '900' },
+      },
+    };
+  }
+
+  return markedDates;
+}
+
+function RaceCalendar({ datedItems, firstDate, selectedDate, onSelectDate }) {
+  return (
+    <View style={styles.jockeyCalendarPanel}>
+      <Calendar
+        current={selectedDate || firstDate}
+        firstDay={1}
+        markedDates={buildCalendarMarks(datedItems, selectedDate)}
+        markingType="custom"
+        onDayPress={(day) => onSelectDate(day.dateString)}
+        theme={{
+          calendarBackground: colors.darkSurface,
+          monthTextColor: colors.darkText,
+          textSectionTitleColor: colors.darkTextMuted,
+          dayTextColor: colors.darkText,
+          textDisabledColor: '#475569',
+          arrowColor: colors.primary,
+          todayTextColor: colors.primary,
+          textDayFontWeight: '700',
+          textMonthFontWeight: '900',
+          textDayHeaderFontWeight: '800',
+        }}
+      />
+      <View style={styles.calendarLegend}>
+        <View style={styles.calendarLegendDot} />
+        <Text style={styles.calendarLegendText}>Ngày có chặng đua</Text>
+      </View>
+    </View>
+  );
+}
+
 function violationSignature(item) {
   return [
     item?.raceId,
@@ -394,71 +452,92 @@ export function Schedule({
     datedJockeyScheduleItems.find((entry) => entry.timestamp >= Date.now())?.dateKey ||
     datedJockeyScheduleItems[0]?.dateKey ||
     toCalendarDateKey(new Date());
+  const ownerScheduleItems = role === 'OWNER' ? data.registrations || [] : [];
+  const datedOwnerScheduleItems = ownerScheduleItems
+    .map((item) => ({
+      item,
+      dateKey: toCalendarDateKey(item.raceScheduledAt),
+      timestamp: new Date(item.raceScheduledAt).getTime(),
+    }))
+    .filter((entry) => entry.dateKey)
+    .sort((first, second) => first.timestamp - second.timestamp);
+  const firstUpcomingOwnerDate =
+    datedOwnerScheduleItems.find((entry) => entry.timestamp >= Date.now())?.dateKey ||
+    datedOwnerScheduleItems[0]?.dateKey ||
+    toCalendarDateKey(new Date());
 
   useEffect(() => {
-    if (role === 'JOCKEY' && !selectedCalendarDate) {
-      setSelectedCalendarDate(firstUpcomingJockeyDate);
-    }
-  }, [firstUpcomingJockeyDate, role, selectedCalendarDate]);
+    if (selectedCalendarDate) return;
+    if (role === 'JOCKEY') setSelectedCalendarDate(firstUpcomingJockeyDate);
+    if (role === 'OWNER') setSelectedCalendarDate(firstUpcomingOwnerDate);
+  }, [firstUpcomingJockeyDate, firstUpcomingOwnerDate, role, selectedCalendarDate]);
 
   if (role === 'OWNER') {
-    return (
-      <Section title="Đăng ký của chủ ngựa">
-        {(data.registrations || []).filter((item) => matchesQuery(item, query)).map((item) => (
-          <View key={item.id} style={styles.invitationItem}>
-            <Pressable onPress={() => setSelectedScheduleItem(item)}>
-              <ListItem
-                icon="reader-outline"
-                title={item.tournamentName || item.raceName || 'Đăng ký'}
-                meta={`${item.horseName || 'Chưa chọn ngựa'} · ${item.status}`}
-                badge={item.jockeyName || 'Chưa có jockey'}
-              />
+    const selectedDateRegistrations = ownerScheduleItems
+      .filter((item) => toCalendarDateKey(item.raceScheduledAt) === selectedCalendarDate)
+      .filter((item) => matchesQuery(item, query))
+      .sort(
+        (first, second) =>
+          new Date(first.raceScheduledAt).getTime() - new Date(second.raceScheduledAt).getTime(),
+      );
+    const unscheduledRegistrations = ownerScheduleItems
+      .filter((item) => !toCalendarDateKey(item.raceScheduledAt))
+      .filter((item) => matchesQuery(item, query));
+    const renderRegistration = (item) => (
+      <View key={item.id} style={styles.invitationItem}>
+        <Pressable onPress={() => setSelectedScheduleItem(item)}>
+          <ListItem
+            icon="reader-outline"
+            title={item.raceName || item.tournamentName || 'Đăng ký'}
+            meta={`${item.horseName || 'Chưa chọn ngựa'} · ${item.jockeyName || 'Chưa có jockey'} · ${formatDateTime(item.raceScheduledAt)}`}
+            badge={item.status}
+          />
+        </Pressable>
+        {item.canWithdraw ? (
+          <View style={styles.invitationActions}>
+            <Pressable
+              style={styles.secondaryAction}
+              onPress={() => onOwnerRegistrationWithdraw(item.id)}
+            >
+              <Text style={styles.secondaryActionText}>Rút đăng ký</Text>
             </Pressable>
-            {item.canWithdraw ? (
-              <View style={styles.invitationActions}>
-                <Pressable
-                  style={styles.secondaryAction}
-                  onPress={() => onOwnerRegistrationWithdraw(item.id)}
-                >
-                  <Text style={styles.secondaryActionText}>Rút đăng ký</Text>
-                </Pressable>
-              </View>
-            ) : null}
           </View>
-        ))}
-        {!data.registrations?.length ? <EmptyText text="Chưa có đăng ký nào." /> : null}
+        ) : null}
+      </View>
+    );
+
+    return (
+      <View>
+        <Text style={styles.sectionTitle}>Lịch thi đấu của chủ ngựa</Text>
+        <RaceCalendar
+          datedItems={datedOwnerScheduleItems}
+          firstDate={firstUpcomingOwnerDate}
+          selectedDate={selectedCalendarDate}
+          onSelectDate={setSelectedCalendarDate}
+        />
+
+        <Section title={`Chặng đua ngày ${selectedCalendarDate || 'đã chọn'}`}>
+          {selectedDateRegistrations.map(renderRegistration)}
+          {!selectedDateRegistrations.length ? (
+            <EmptyText text="Ngày này chưa có chặng đua đã đăng ký." />
+          ) : null}
+        </Section>
+
+        {unscheduledRegistrations.length ? (
+          <Section title="Đăng ký chưa có lịch thi đấu">
+            {unscheduledRegistrations.map(renderRegistration)}
+          </Section>
+        ) : null}
         <OwnerDetailModal
           item={selectedScheduleItem}
           type="registration"
           onClose={() => setSelectedScheduleItem(null)}
         />
-      </Section>
+      </View>
     );
   }
 
   if (role === 'JOCKEY') {
-    const raceDateKeys = new Set(datedJockeyScheduleItems.map((entry) => entry.dateKey));
-    const markedDates = {};
-    raceDateKeys.forEach((dateKey) => {
-      markedDates[dateKey] = {
-        customStyles: {
-          container: {
-            backgroundColor: '#991B1B',
-            borderWidth: selectedCalendarDate === dateKey ? 2 : 0,
-            borderColor: colors.primary,
-          },
-          text: { color: '#FFFFFF', fontWeight: '900' },
-        },
-      };
-    });
-    if (selectedCalendarDate && !markedDates[selectedCalendarDate]) {
-      markedDates[selectedCalendarDate] = {
-        customStyles: {
-          container: { backgroundColor: colors.primary },
-          text: { color: '#1D1705', fontWeight: '900' },
-        },
-      };
-    }
     const selectedDateItems = jockeyScheduleItems
       .filter((item) => toCalendarDateKey(jockeyScheduleStart(item)) === selectedCalendarDate)
       .filter((item) => matchesQuery(item, query))
@@ -471,31 +550,12 @@ export function Schedule({
     return (
       <View>
         <Text style={styles.sectionTitle}>Lịch thi đấu của jockey</Text>
-        <View style={styles.jockeyCalendarPanel}>
-          <Calendar
-            current={selectedCalendarDate || firstUpcomingJockeyDate}
-            firstDay={1}
-            markedDates={markedDates}
-            markingType="custom"
-            onDayPress={(day) => setSelectedCalendarDate(day.dateString)}
-            theme={{
-              calendarBackground: colors.darkSurface,
-              monthTextColor: colors.darkText,
-              textSectionTitleColor: colors.darkTextMuted,
-              dayTextColor: colors.darkText,
-              textDisabledColor: '#475569',
-              arrowColor: colors.primary,
-              todayTextColor: colors.primary,
-              textDayFontWeight: '700',
-              textMonthFontWeight: '900',
-              textDayHeaderFontWeight: '800',
-            }}
-          />
-          <View style={styles.calendarLegend}>
-            <View style={styles.calendarLegendDot} />
-            <Text style={styles.calendarLegendText}>Ngày có chặng đua</Text>
-          </View>
-        </View>
+        <RaceCalendar
+          datedItems={datedJockeyScheduleItems}
+          firstDate={firstUpcomingJockeyDate}
+          selectedDate={selectedCalendarDate}
+          onSelectDate={setSelectedCalendarDate}
+        />
 
         <Section title={`Chặng đua ngày ${selectedCalendarDate || 'đã chọn'}`}>
           {selectedDateItems.map((item) => (
