@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppAlert } from '../../components/ui/AppAlert';
 import { colors } from '../../constants/theme';
+import { activityStorage } from '../../services/activityStorage';
 import { horseService } from '../../services/horseService';
 import { invitationService } from '../../services/invitationService';
 import { jockeyService } from '../../services/jockeyService';
@@ -175,6 +176,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [error, setError] = useState('');
   const role = roleOrSpectator(user?.role);
   const name = displayName(user);
+  const activityUserKey = user?.id || user?._id || user?.email || name;
   const visibleTabs = role === 'OWNER' ? ownerTabs : tabs;
 
   // Modal States
@@ -209,6 +211,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [inviteError, setInviteError] = useState('');
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const [activityLog, setActivityLog] = useState([]);
+  const [activityHydrated, setActivityHydrated] = useState(false);
   const [serverNotifications, setServerNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState('');
@@ -299,6 +302,29 @@ export default function RoleHomeScreen({ user, onLogout }) {
 
     return () => clearInterval(timer);
   }, [role]);
+
+  useEffect(() => {
+    let active = true;
+    setActivityHydrated(false);
+
+    activityStorage
+      .load(activityUserKey)
+      .then((items) => {
+        if (active) setActivityLog(items);
+      })
+      .finally(() => {
+        if (active) setActivityHydrated(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activityUserKey]);
+
+  useEffect(() => {
+    if (!activityHydrated) return;
+    activityStorage.save(activityUserKey, activityLog).catch(() => {});
+  }, [activityHydrated, activityLog, activityUserKey]);
 
   useEffect(() => {
     if (!visibleTabs.some((tab) => tab.key === activeTab)) {
