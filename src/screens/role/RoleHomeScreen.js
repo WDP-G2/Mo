@@ -152,7 +152,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [ownerOpenRaces, setOwnerOpenRaces] = useState([]);
 
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
-  const [registerForm, setRegisterForm] = useState({ tournamentId: '', raceId: '', horseId: '', jockeyId: '' });
+  const [registerForm, setRegisterForm] = useState({
+    tournamentId: '',
+    raceId: '',
+    horseId: '',
+    jockeyInvitationId: '',
+  });
   const [ownerTournaments, setOwnerTournaments] = useState([]);
   const [tournamentRaces, setTournamentRaces] = useState([]);
   const [registerJockeys, setRegisterJockeys] = useState([]);
@@ -390,7 +395,13 @@ export default function RoleHomeScreen({ user, onLogout }) {
       const openRaces = [];
       (tournaments || []).forEach(t => {
         (t.races || []).forEach(r => {
-          if (r.status === 'Đang mở đăng ký' || r.status === 'Sắp chạy' || r.status === 'Sắp diễn ra') {
+          if (
+            r.statusCode === 'OPEN_REGISTRATION' ||
+            r.statusCode === 'SCHEDULED' ||
+            r.status === 'Đang mở đăng ký' ||
+            r.status === 'Sắp chạy' ||
+            r.status === 'Sắp diễn ra'
+          ) {
             openRaces.push({
               id: r.id || r._id,
               name: `Race R${r.raceNumber} · ${r.name}`,
@@ -444,28 +455,31 @@ export default function RoleHomeScreen({ user, onLogout }) {
   async function openRegisterModal() {
     try {
       setLoading(true);
-      const [tournaments, horses, jockeys] = await Promise.all([
+      const [tournaments, horses, invitations] = await Promise.all([
         tournamentService.list(),
         ownerService.listHorses(),
-        userService.list({ role: 'JOCKEY' })
+        ownerService.listJockeyInvitations(),
       ]);
       const openTournaments = (tournaments || []).filter(t => t.status === 'Đang mở đăng ký');
+      const acceptedInvitations = (invitations || []).filter((item) => item.status === 'Đã chấp nhận');
       setOwnerTournaments(openTournaments);
       setOwnerHorses(horses);
-      setRegisterJockeys(jockeys);
+      setRegisterJockeys(acceptedInvitations);
 
       if (openTournaments.length > 0) {
         const races = openTournaments[0].races || [];
+        const selectedRaceId = races[0]?.id || races[0]?._id || '';
+        const raceInvitation = acceptedInvitations.find((item) => String(item.raceId) === String(selectedRaceId));
         setTournamentRaces(races);
         setRegisterForm({
           tournamentId: openTournaments[0].id || openTournaments[0]._id,
-          raceId: races[0]?.id || races[0]?._id || '',
+          raceId: selectedRaceId,
           horseId: horses[0]?.id || '',
-          jockeyId: jockeys[0]?.id || ''
+          jockeyInvitationId: raceInvitation?.id || '',
         });
       } else {
         setTournamentRaces([]);
-        setRegisterForm({ tournamentId: '', raceId: '', horseId: '', jockeyId: '' });
+        setRegisterForm({ tournamentId: '', raceId: '', horseId: '', jockeyInvitationId: '' });
       }
       setRegisterModalVisible(true);
     } catch (err) {
@@ -480,26 +494,29 @@ export default function RoleHomeScreen({ user, onLogout }) {
     const t = ownerTournaments.find(item => (item.id || item._id) === tournamentId);
     const races = t ? (t.races || []) : [];
     setTournamentRaces(races);
+    const nextRaceId = races[0]?.id || races[0]?._id || '';
+    const raceInvitation = registerJockeys.find((item) => String(item.raceId) === String(nextRaceId));
     setRegisterForm(current => ({
       ...current,
       tournamentId,
-      raceId: races[0]?.id || races[0]?._id || ''
+      raceId: nextRaceId,
+      jockeyInvitationId: raceInvitation?.id || '',
     }));
   }
 
   // Submit Registration Handler
   async function submitRegistration() {
-    if (!registerForm.tournamentId || !registerForm.raceId || !registerForm.horseId || !registerForm.jockeyId) {
-      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin đăng ký.');
+    if (!registerForm.tournamentId || !registerForm.raceId || !registerForm.horseId || !registerForm.jockeyInvitationId) {
+      Alert.alert('Lỗi', 'Vui lòng chọn race, ngựa và lời mời jockey đã được chấp nhận.');
       return;
     }
 
     try {
       setLoading(true);
-      await ownerService.createRegistration(registerForm.tournamentId, {
+      await ownerService.createRegistration({
         raceId: registerForm.raceId,
         horseId: registerForm.horseId,
-        jockeyId: registerForm.jockeyId
+        jockeyInvitationId: registerForm.jockeyInvitationId,
       });
       Alert.alert('Thành công', 'Đăng ký tham gia giải đấu thành công.');
       setRegisterModalVisible(false);
@@ -575,6 +592,8 @@ export default function RoleHomeScreen({ user, onLogout }) {
     } finally {
       setLoading(false);
     }
+  }
+
   // Open Violation Modal Handler
   async function openViolationModal(race) {
     setSelectedViolationRace(race);
@@ -697,6 +716,20 @@ export default function RoleHomeScreen({ user, onLogout }) {
           </ScrollView>
         )}
 
+        <View style={styles.tabBar}>
+          {tabs.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <Pressable key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}>
+                <Ionicons
+                  name={active ? tab.activeIcon : tab.icon}
+                  size={19}
+                  color={active ? colors.primary : colors.darkTextMuted}
+                />
+                <Text style={[styles.tabText, active && styles.activeTabText]}>{tab.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* Modal: Đặt cược */}
@@ -1026,7 +1059,15 @@ export default function RoleHomeScreen({ user, onLogout }) {
                       <Pressable
                         key={r.id || r._id}
                         style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                        onPress={() => setRegisterForm(curr => ({ ...curr, raceId: (r.id || r._id) }))}
+                        onPress={() => {
+                          const raceId = r.id || r._id;
+                          const raceInvitation = registerJockeys.find((item) => String(item.raceId) === String(raceId));
+                          setRegisterForm(curr => ({
+                            ...curr,
+                            raceId,
+                            jockeyInvitationId: raceInvitation?.id || '',
+                          }));
+                        }}
                       >
                         <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
                           Race R{r.raceNumber} · {r.name}
@@ -1054,23 +1095,36 @@ export default function RoleHomeScreen({ user, onLogout }) {
                   })}
                 </View>
 
-                <Text style={styles.modalLabel}>Chọn Jockey (đã được liên kết/cho phép):</Text>
+                <Text style={styles.modalLabel}>Chọn lời mời Jockey đã chấp nhận:</Text>
                 <View style={styles.modalSelector}>
                   {(registerJockeys || []).map((j) => {
-                    const active = registerForm.jockeyId === j.id;
+                    const active = registerForm.jockeyInvitationId === j.id;
+                    const disabled = registerForm.raceId && String(j.raceId) !== String(registerForm.raceId);
                     return (
                       <Pressable
                         key={j.id}
-                        style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                        onPress={() => setRegisterForm(curr => ({ ...curr, jockeyId: j.id }))}
+                        disabled={disabled}
+                        style={[
+                          styles.modalSelectorOption,
+                          active && styles.modalSelectorOptionActive,
+                          disabled && styles.disabledButton,
+                        ]}
+                        onPress={() => setRegisterForm(curr => ({
+                          ...curr,
+                          horseId: j.horseId || curr.horseId,
+                          jockeyInvitationId: j.id,
+                        }))}
                       >
                         <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                          {j.fullName || j.username}
+                          {j.jockeyName || 'Jockey'} · {j.horseName || 'Ngựa'}
                         </Text>
                       </Pressable>
                     );
                   })}
                 </View>
+                {!registerJockeys?.length ? (
+                  <Text style={styles.emptyText}>Cần có lời mời Jockey đã chấp nhận trước khi đăng ký race.</Text>
+                ) : null}
 
                 <View style={styles.modalButtonRow}>
                   <Pressable style={styles.secondaryAction} onPress={() => setRegisterModalVisible(false)}>

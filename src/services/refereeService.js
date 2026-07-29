@@ -170,7 +170,7 @@ export const refereeService = {
   },
 
   async createViolation(raceId, payload) {
-    return apiRequest(`/referee/races/${raceId}/violations`, {
+    return apiRequest(ENDPOINTS.referee.raceViolations(raceId), {
       method: 'POST',
       body: {
         participantId: payload.participantId,
@@ -179,8 +179,8 @@ export const refereeService = {
         severity: payload.severity || 'Phạt nhẹ',
         description: payload.description || '',
         penalty: payload.penalty || '',
-        occurredAt: new Date().toISOString()
-      }
+        occurredAt: new Date().toISOString(),
+      },
     });
   },
 

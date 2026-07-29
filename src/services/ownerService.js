@@ -96,7 +96,7 @@ export const ownerService = {
   },
 
   async createJockeyInvitation(payload) {
-    const invitation = await apiRequest('/owner/jockey-invitations', {
+    const invitation = await apiRequest(ENDPOINTS.owner.createJockeyInvitation, {
       method: 'POST',
       body: {
         horseId: payload.horseId,
@@ -104,23 +104,21 @@ export const ownerService = {
         jockeyId: payload.jockeyId,
         message: payload.message || '',
         remunerationAmount: Number(payload.remunerationAmount || 0),
-      }
+      },
     });
     return mapInvitation(invitation);
   },
 
-  async createRegistration(tournamentId, payload) {
-    const registration = await apiRequest(`/tournaments/${tournamentId}/owner/registrations`, {
+  async createRegistration(payload) {
+    const registration = await apiRequest(ENDPOINTS.races.register(payload.raceId), {
       method: 'POST',
       body: {
-        raceId: payload.raceId,
         horseId: payload.horseId,
-        jockeyId: payload.jockeyId,
-        fullName: payload.fullName || ''
-      }
+        jockeyInvitationId: payload.jockeyInvitationId,
+        note: payload.note || '',
+      },
     });
     return mapRegistration(registration);
-  }
+  },
 };
-
 

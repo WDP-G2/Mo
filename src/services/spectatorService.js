@@ -117,26 +117,25 @@ export const spectatorService = {
   },
 
   async createDeposit(amount) {
-    return apiRequest('/wallets/me/deposit-orders', {
+    return apiRequest(ENDPOINTS.wallets.createDepositOrder, {
       method: 'POST',
       body: {
         amount: Number(amount),
         provider: 'ZALOPAY',
-        paymentChannel: 'VISA'
-      }
+        paymentChannel: 'VISA',
+      },
     });
   },
 
   async payCardDeposit(orderId, cardInfo) {
-    return apiRequest(`/wallets/me/deposit-orders/${orderId}/pay-with-card`, {
+    return apiRequest(ENDPOINTS.wallets.payDepositOrderWithCard(orderId), {
       method: 'POST',
       body: {
         cardNumber: cardInfo.cardNumber,
         cardName: cardInfo.cardName,
         expiry: cardInfo.expiry,
-        cvv: cardInfo.cvv
-      }
+        cvv: cardInfo.cvv,
+      },
     });
-  }
+  },
 };
-

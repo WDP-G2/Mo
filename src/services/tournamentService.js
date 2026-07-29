@@ -45,6 +45,22 @@ function mapRegistration(item) {
   };
 }
 
+function mapRace(race) {
+  if (!race) return null;
+
+  return {
+    id: String(race.id || race._id || race.raceId || ''),
+    raceNumber: race.raceNumber || '',
+    name: race.name || race.raceName || 'Race',
+    status: race.statusLabel || race.status || race.statusCode || 'Chưa cập nhật',
+    statusCode: race.statusCode || race.status || '',
+    scheduledStartAt: race.scheduledStartAt || race.scheduledAt || race.startAt || '',
+    entryFee: Number(race.entryFee || 0),
+    minHorses: Number(race.minHorses || race.minParticipants || 0),
+    maxHorses: Number(race.maxHorses || race.maxParticipants || 0),
+  };
+}
+
 export function mapTournament(tournament) {
   if (!tournament) return null;
   const races = Array.isArray(tournament.races) ? tournament.races : [];
@@ -62,6 +78,7 @@ export function mapTournament(tournament) {
     dateLabel: toDateLabel(tournament.startDate),
     prize: tournament.config?.prize || tournament.prize || 'Chưa cập nhật',
     raceCount: tournament.raceCount ?? races.length,
+    races: races.map(mapRace).filter(Boolean),
     registrationCount: tournament.registrationCount ?? registrations.length,
     pendingCount: registrations.filter((item) => item.status === 'Chờ duyệt').length,
     openRaceCount: tournament.openRaceCount ?? 0,

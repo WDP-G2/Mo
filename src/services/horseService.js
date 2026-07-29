@@ -30,17 +30,16 @@ export const horseService = {
   },
 
   async create(payload) {
-    const horse = await apiRequest('/owner/horses', {
+    const horse = await apiRequest(ENDPOINTS.owner.createHorse, {
       method: 'POST',
       body: {
         name: payload.name,
         breed: payload.breed,
         age: Number(payload.age),
         healthStatus: payload.healthStatus || 'Khỏe mạnh',
-        racingStatus: payload.racingStatus || 'can-race'
-      }
+        racingStatus: payload.racingStatus || 'can-race',
+      },
     });
     return mapHorse(horse);
-  }
+  },
 };
-

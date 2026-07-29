@@ -24,6 +24,10 @@ export const ENDPOINTS = {
   horses: {
     list: '/horses',
   },
+  wallets: {
+    createDepositOrder: '/wallets/me/deposit-orders',
+    payDepositOrderWithCard: (id) => `/wallets/me/deposit-orders/${id}/pay-with-card`,
+  },
   invitations: {
     list: '/invitations',
     me: '/invitations/me',
@@ -53,6 +57,7 @@ export const ENDPOINTS = {
     confirmSimulation: (raceId) => `/referee/races/${raceId}/simulation/confirm`,
     finalizeResults: (raceId) => `/referee/races/${raceId}/results/finalize`,
     violations: '/referee/violations',
+    updateViolation: (id) => `/referee/violations/${id}`,
     raceViolations: (raceId) => `/referee/races/${raceId}/violations`,
     payments: '/referee/payments',
     invitations: '/referee/invitations',
@@ -65,8 +70,10 @@ export const ENDPOINTS = {
     dashboard: '/owner/dashboard',
     horses: '/owner/horses',
     raceRegistrations: '/owner/race-registrations',
+    createHorse: '/owner/horses',
     withdrawRegistration: (id) => `/owner/race-registrations/${id}/withdraw`,
     jockeyInvitations: '/owner/jockey-invitations',
+    createJockeyInvitation: '/owner/jockey-invitations',
     acceptedRacesForJockey: (id) => `/owner/jockeys/${id}/accepted-races`,
     cancelJockeyInvitation: (id) => `/owner/jockey-invitations/${id}/cancel`,
   },
@@ -76,6 +83,7 @@ export const ENDPOINTS = {
   races: {
     betMarket: (id) => `/races/${id}/bet-market`,
     results: (id) => `/races/${id}/results`,
+    register: (id) => `/races/${id}/registrations`,
     placeBet: (id) => `/races/${id}/bets`,
   },
 };
