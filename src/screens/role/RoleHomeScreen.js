@@ -19,6 +19,7 @@ import { ownerService } from '../../services/ownerService';
 import { refereeService } from '../../services/refereeService';
 import { spectatorService } from '../../services/spectatorService';
 import { tournamentService } from '../../services/tournamentService';
+import { userService } from '../../services/userService';
 import { getRoleLabel } from '../../utils/role';
 import { RoleActionModals } from './components/RoleActionModals';
 import { SearchBox } from './components/RolePrimitives';
