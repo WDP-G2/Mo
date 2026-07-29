@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -114,6 +115,8 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [ownerOpenRaces, setOwnerOpenRaces] = useState([]);
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  const [activityModalVisible, setActivityModalVisible] = useState(false);
+  const [activityLog, setActivityLog] = useState([]);
 
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
   const [registerForm, setRegisterForm] = useState({
@@ -174,6 +177,20 @@ export default function RoleHomeScreen({ user, onLogout }) {
 
   const stats = useMemo(() => buildStats(role, data), [data, role]);
 
+  function recordActivity(icon, title, detail) {
+    const createdAt = new Date();
+    setActivityLog((current) => [
+      {
+        id: `${createdAt.getTime()}-${Math.random().toString(36).slice(2, 7)}`,
+        icon,
+        title,
+        detail,
+        time: createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      },
+      ...current,
+    ].slice(0, 30));
+  }
+
   async function handleInvitationResponse(id, action) {
     try {
       const updated =
@@ -186,6 +203,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
           item.id === id ? { ...item, status: updated?.status || item.status } : item,
         ),
       }));
+      recordActivity(
+        action === 'accept' ? 'checkmark-circle-outline' : 'close-circle-outline',
+        action === 'accept' ? 'Đã nhận lời mời' : 'Đã từ chối lời mời',
+        updated?.horseName || updated?.raceName || 'Lời mời jockey',
+      );
     } catch (requestError) {
       setError(requestError.message || 'Không cập nhật được lời mời.');
     }
@@ -200,6 +222,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
           item.id === id ? { ...item, status: updated?.status || item.status } : item,
         ),
       }));
+      recordActivity(
+        action === 'accept' ? 'shield-checkmark-outline' : 'close-circle-outline',
+        action === 'accept' ? 'Đã nhận lời mời trọng tài' : 'Đã từ chối lời mời trọng tài',
+        updated?.raceName || 'Lời mời trọng tài',
+      );
     } catch (requestError) {
       setError(requestError.message || 'Không cập nhật được lời mời trọng tài.');
     }
@@ -220,6 +247,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
           ),
         },
       }));
+      recordActivity('flag-outline', 'Đã bắt đầu cuộc đua', updated?.name || 'Race');
     } catch (requestError) {
       setError(requestError.message || 'Không bắt đầu được cuộc đua.');
     }
@@ -236,6 +264,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
             : item,
         ),
       }));
+      recordActivity(
+        status === 'CHECKED_IN' ? 'checkmark-done-outline' : 'remove-circle-outline',
+        status === 'CHECKED_IN' ? 'Đã check-in participant' : 'Đã đánh dấu vắng mặt',
+        updated?.horseName || 'Participant',
+      );
     } catch (requestError) {
       setError(requestError.message || 'Không check-in được participant.');
     }
@@ -250,6 +283,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
           item.id === id ? { ...item, status: updated?.status || item.status } : item,
         ),
       }));
+      recordActivity('mail-open-outline', 'Đã hủy lời mời jockey', updated?.jockeyName || 'Jockey');
     } catch (requestError) {
       setError(requestError.message || 'Không hủy được lời mời jockey.');
     }
@@ -264,6 +298,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
           item.id === id ? { ...item, ...updated } : item,
         ),
       }));
+      recordActivity('reader-outline', 'Đã rút đăng ký race', updated?.raceName || updated?.tournamentName || 'Đăng ký');
     } catch (requestError) {
       setError(requestError.message || 'Không rút được đăng ký race.');
     }
@@ -288,6 +323,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
         stakeAmount: amount,
         idempotencyKey: 'bet-' + Date.now(),
       });
+      recordActivity(
+        'ticket-outline',
+        'Đã đặt cược',
+        `${selectedOption.horseName || 'Ngựa'} · ${amount.toLocaleString('vi-VN')}đ`,
+      );
       showAlert('Thành công', 'Đã đặt cược thành công.');
       setBetModalVisible(false);
       setBetAmount('');
@@ -317,6 +357,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       
       // Pay using card details
       await spectatorService.payCardDeposit(order.id, cardInfo);
+      recordActivity('wallet-outline', 'Đã nạp ví', `${amount.toLocaleString('vi-VN')}đ`);
       showAlert('Thành công', `Đã nạp thành công ${amount.toLocaleString()}đ vào ví.`);
       setDepositModalVisible(false);
       setDepositAmount('');
@@ -339,9 +380,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
       setLoading(true);
       if (newHorse.id) {
         await horseService.update(newHorse.id, newHorse);
+        recordActivity('create-outline', 'Đã sửa ngựa', newHorse.name);
         showAlert('Thành công', `Đã cập nhật ngựa ${newHorse.name} thành công.`);
       } else {
         await horseService.create(newHorse);
+        recordActivity('footsteps-outline', 'Đã tạo ngựa', newHorse.name);
         showAlert('Thành công', `Đã thêm ngựa ${newHorse.name} thành công.`);
       }
       setHorseModalVisible(false);
@@ -363,6 +406,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
     try {
       setLoading(true);
       await horseService.remove(horse.id);
+      recordActivity('trash-outline', 'Đã xóa ngựa', horse.name || 'Ngựa');
       showAlert('Thành công', `Đã xóa ngựa ${horse.name} thành công.`);
       refreshData();
     } catch (err) {
@@ -458,6 +502,13 @@ export default function RoleHomeScreen({ user, onLogout }) {
         ...inviteForm,
         idempotencyKey: 'invite-' + Date.now()
       });
+      const invitedJockey = allJockeys.find((jockey) => jockey.id === inviteForm.jockeyId);
+      const invitedHorse = ownerHorses.find((horse) => horse.id === inviteForm.horseId);
+      recordActivity(
+        'mail-outline',
+        'Đã gửi lời mời jockey',
+        `${invitedJockey?.fullName || invitedJockey?.name || invitedJockey?.username || 'Jockey'} · ${invitedHorse?.name || 'Ngựa'}`,
+      );
       setInviteModalVisible(false);
       showAlert('Thành công', 'Đã gửi lời mời tới jockey thành công.');
       refreshData();
@@ -535,6 +586,8 @@ export default function RoleHomeScreen({ user, onLogout }) {
         horseId: registerForm.horseId,
         jockeyInvitationId: registerForm.jockeyInvitationId,
       });
+      const registeredHorse = ownerHorses.find((horse) => horse.id === registerForm.horseId);
+      recordActivity('trophy-outline', 'Đã đăng ký giải', registeredHorse?.name || 'Ngựa');
       showAlert('Thành công', 'Đăng ký tham gia giải đấu thành công.');
       setRegisterModalVisible(false);
       refreshData();
@@ -561,6 +614,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       setSimulationLoading(true);
       const res = await refereeService.generateSimulation(selectedRefereeRace.id);
       setSimulationResult(res);
+      recordActivity('play-circle-outline', 'Đã chạy mô phỏng', selectedRefereeRace.name || 'Race');
       
       // Simulate playback loading
       setTimeout(() => {
@@ -579,6 +633,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       setLoading(true);
       await refereeService.confirmSimulation(selectedRefereeRace.id, simulationResult.runId);
       setSimulationConfirmed(true);
+      recordActivity('checkmark-circle-outline', 'Đã xác nhận mô phỏng', selectedRefereeRace.name || 'Race');
       showAlert('Thành công', 'Đã xác nhận kết quả mô phỏng.');
     } catch (err) {
       showAlert('Lỗi', err.message || 'Xác nhận thất bại.');
@@ -601,6 +656,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       }));
 
       await refereeService.finalizeResults(selectedRefereeRace.id, payload);
+      recordActivity('trophy-outline', 'Đã chốt kết quả race', selectedRefereeRace.name || 'Race');
       showAlert('Thành công', 'Đã chốt kết quả cuộc đua thành công.');
       setRefereeRaceModalVisible(false);
       refreshData();
@@ -648,6 +704,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
         ...violationForm,
         gateNumber: selectedPart?.gateNumber || violationForm.gateNumber
       });
+      recordActivity('warning-outline', 'Đã lập biên bản vi phạm', selectedPart?.horseName || selectedViolationRace.name || 'Race');
       showAlert('Thành công', 'Đã lập biên bản vi phạm thành công.');
       setViolationModalVisible(false);
       refreshData();
@@ -662,13 +719,21 @@ export default function RoleHomeScreen({ user, onLogout }) {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.app}>
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerTitleBlock}>
             <Text style={styles.eyebrow}>{getRoleLabel(role)} Portal</Text>
-            <Text style={styles.title}>{name}</Text>
+            <Text style={styles.title} numberOfLines={1}>{name}</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable style={styles.refreshButton} onPress={refreshData}>
               <Ionicons name="refresh-outline" size={19} color={colors.darkText} />
+            </Pressable>
+            <Pressable style={styles.refreshButton} onPress={() => setActivityModalVisible(true)}>
+              <Ionicons name="notifications-outline" size={19} color={colors.darkText} />
+              {activityLog.length ? (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>{activityLog.length > 9 ? '9+' : activityLog.length}</Text>
+                </View>
+              ) : null}
             </Pressable>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{initials(name)}</Text>
@@ -839,8 +904,66 @@ export default function RoleHomeScreen({ user, onLogout }) {
             onSubmit: submitViolation,
           }}
         />
+
+        <ActivityLogModal
+          visible={activityModalVisible}
+          items={activityLog}
+          onClear={() => setActivityLog([])}
+          onClose={() => setActivityModalVisible(false)}
+        />
       </View>
     </SafeAreaView>
+  );
+}
+
+function ActivityLogModal({ visible, items, onClear, onClose }) {
+  return (
+    <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.activityBackdrop}>
+        <View style={styles.activityModal}>
+          <View style={styles.activityHeader}>
+            <View>
+              <Text style={styles.activityEyebrow}>Thông báo</Text>
+              <Text style={styles.activityTitle}>Nhật ký thao tác</Text>
+            </View>
+            <Pressable style={styles.activityClose} onPress={onClose}>
+              <Ionicons name="close" size={20} color={colors.darkText} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={styles.activityList} contentContainerStyle={styles.activityListContent}>
+            {items.length ? (
+              items.map((item) => (
+                <View key={item.id} style={styles.activityItem}>
+                  <View style={styles.activityIcon}>
+                    <Ionicons name={item.icon} size={18} color={colors.primary} />
+                  </View>
+                  <View style={styles.activityCopy}>
+                    <Text style={styles.activityItemTitle}>{item.title}</Text>
+                    <Text style={styles.activityDetail} numberOfLines={2}>{item.detail}</Text>
+                  </View>
+                  <Text style={styles.activityTime}>{item.time}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.activityEmpty}>
+                <Ionicons name="notifications-outline" size={34} color={colors.darkTextMuted} />
+                <Text style={styles.activityEmptyText}>Chưa có thao tác nào trong phiên này.</Text>
+              </View>
+            )}
+          </ScrollView>
+
+          <View style={styles.activityFooter}>
+            <Pressable style={styles.activitySecondaryButton} onPress={onClear}>
+              <Text style={styles.activitySecondaryText}>Xóa nhật ký</Text>
+            </Pressable>
+            <Pressable style={styles.activityPrimaryButton} onPress={onClose}>
+              <Text style={styles.activityPrimaryText}>Đóng</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -866,6 +989,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
+  },
+  headerTitleBlock: {
+    flex: 1,
+    paddingRight: 12,
   },
   title: {
     marginTop: 4,
@@ -900,6 +1027,149 @@ const styles = StyleSheet.create({
     borderColor: colors.darkBorder,
     borderRadius: 13,
     backgroundColor: colors.darkSurface,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 17,
+    height: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 9,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#1D1705',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  activityBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    padding: 20,
+  },
+  activityModal: {
+    maxHeight: '78%',
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 18,
+    backgroundColor: colors.darkSurface,
+    padding: 18,
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  activityEyebrow: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  activityTitle: {
+    marginTop: 3,
+    color: colors.darkText,
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  activityClose: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 13,
+    backgroundColor: colors.darkSurfaceSoft,
+  },
+  activityList: {
+    marginTop: 14,
+  },
+  activityListContent: {
+    paddingBottom: 4,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    minHeight: 68,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D2A40',
+    paddingVertical: 11,
+  },
+  activityIcon: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.darkSurfaceSoft,
+  },
+  activityCopy: {
+    flex: 1,
+  },
+  activityItemTitle: {
+    color: colors.darkText,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  activityDetail: {
+    marginTop: 4,
+    color: colors.darkTextMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+  activityTime: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  activityEmpty: {
+    alignItems: 'center',
+    paddingVertical: 34,
+  },
+  activityEmptyText: {
+    marginTop: 10,
+    color: colors.darkTextMuted,
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  activityFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  activitySecondaryButton: {
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 13,
+    paddingVertical: 12,
+  },
+  activitySecondaryText: {
+    color: colors.darkText,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  activityPrimaryButton: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: 13,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+  },
+  activityPrimaryText: {
+    color: '#1D1705',
+    fontSize: 12,
+    fontWeight: '900',
   },
   content: {
     paddingHorizontal: 15,
