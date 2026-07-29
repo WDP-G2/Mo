@@ -26,6 +26,35 @@ export function mapHorse(horse) {
   };
 }
 
+function appendIfPresent(formData, key, value) {
+  if (value === undefined || value === null || value === '') return;
+  formData.append(key, value);
+}
+
+function buildHorseFormData(payload) {
+  const formData = new FormData();
+
+  appendIfPresent(formData, 'name', payload.name);
+  appendIfPresent(formData, 'breed', payload.breed);
+  appendIfPresent(formData, 'age', payload.age);
+  appendIfPresent(formData, 'gender', payload.gender);
+  appendIfPresent(formData, 'color', payload.color);
+  appendIfPresent(formData, 'heightCm', payload.heightCm !== undefined ? payload.heightCm : payload.height);
+  appendIfPresent(formData, 'weightKg', payload.weightKg !== undefined ? payload.weightKg : payload.weight);
+  appendIfPresent(formData, 'healthStatus', payload.healthStatus || 'Khỏe mạnh');
+  appendIfPresent(formData, 'racingStatus', payload.racingStatus || 'can-race');
+
+  if (payload.imageFile?.uri) {
+    formData.append('image', {
+      uri: payload.imageFile.uri,
+      name: payload.imageFile.name || 'horse.jpg',
+      type: payload.imageFile.type || 'image/jpeg',
+    });
+  }
+
+  return formData;
+}
+
 export const horseService = {
   async list(params = {}) {
     const list = await apiRequest(ENDPOINTS.horses.list, { params });
@@ -38,9 +67,9 @@ export const horseService = {
   },
 
   async create(payload) {
-    const horse = await apiRequest(ENDPOINTS.owner.createHorse, {
-      method: 'POST',
-      body: {
+    const body = payload.imageFile?.uri
+      ? buildHorseFormData(payload)
+      : {
         name: payload.name,
         breed: payload.breed,
         age: Number(payload.age),
@@ -50,7 +79,11 @@ export const horseService = {
         weightKg: payload.weightKg !== undefined ? Number(payload.weightKg) : Number(payload.weight || 0),
         healthStatus: payload.healthStatus || 'Khỏe mạnh',
         racingStatus: payload.racingStatus || 'can-race',
-      },
+      };
+
+    const horse = await apiRequest(ENDPOINTS.owner.createHorse, {
+      method: 'POST',
+      body,
     });
     return mapHorse(horse);
   },

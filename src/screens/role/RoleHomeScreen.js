@@ -40,6 +40,7 @@ const emptyNewHorse = {
   color: '',
   height: '',
   weight: '',
+  imageFile: null,
   healthStatus: 'Khỏe mạnh',
   racingStatus: 'can-race',
 };

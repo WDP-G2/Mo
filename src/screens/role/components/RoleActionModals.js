@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../constants/theme';
 import { EmptyText } from './RolePrimitives';
@@ -165,6 +166,30 @@ function DepositModal({ visible, depositAmount, cardInfo, onChangeDepositAmount,
 }
 
 function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) {
+  async function pickHorseImage() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const asset = result.assets[0];
+    onChangeNewHorse((curr) => ({
+      ...curr,
+      imageFile: {
+        uri: asset.uri,
+        name: asset.fileName || `horse-${Date.now()}.jpg`,
+        type: asset.mimeType || 'image/jpeg',
+      },
+    }));
+  }
+
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
@@ -180,6 +205,30 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
               value={newHorse.name}
               onChangeText={(val) => onChangeNewHorse((curr) => ({ ...curr, name: val }))}
             />
+
+            <Text style={styles.modalLabel}>Ảnh ngựa:</Text>
+            <Pressable style={styles.imagePickerButton} onPress={pickHorseImage}>
+              <Ionicons name="image-outline" size={18} color={colors.primary} />
+              <Text style={styles.imagePickerText}>
+                {newHorse.imageFile?.uri ? 'Đổi ảnh ngựa' : 'Chọn ảnh ngựa'}
+              </Text>
+            </Pressable>
+            {newHorse.imageFile?.uri ? (
+              <View style={styles.imagePreviewRow}>
+                <Image source={{ uri: newHorse.imageFile.uri }} style={styles.imagePreview} />
+                <View style={styles.imagePreviewMeta}>
+                  <Text style={styles.imageName} numberOfLines={1}>
+                    {newHorse.imageFile.name || 'Ảnh ngựa'}
+                  </Text>
+                  <Pressable
+                    style={styles.removeImageButton}
+                    onPress={() => onChangeNewHorse((curr) => ({ ...curr, imageFile: null }))}
+                  >
+                    <Text style={styles.removeImageText}>Xóa ảnh</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
 
             <Text style={styles.modalLabel}>Giống ngựa:</Text>
             <TextInput
@@ -715,6 +764,61 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginBottom: 8,
+  },
+  imagePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 10,
+    backgroundColor: colors.darkSurfaceSoft,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  imagePickerText: {
+    color: colors.darkText,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  imagePreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 12,
+    backgroundColor: colors.darkSurfaceSoft,
+    padding: 10,
+  },
+  imagePreview: {
+    width: 76,
+    height: 58,
+    borderRadius: 8,
+    backgroundColor: colors.darkSurface,
+  },
+  imagePreviewMeta: {
+    flex: 1,
+  },
+  imageName: {
+    color: colors.darkText,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  removeImageButton: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    borderRadius: 8,
+    backgroundColor: '#3A2F1B',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  removeImageText: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
   },
   modalSelector: {
     flexDirection: 'row',

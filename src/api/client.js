@@ -51,6 +51,7 @@ async function parseResponse(response) {
 export async function apiRequest(path, options = {}) {
   const { params, headers, body, ...requestOptions } = options;
   const requestUrl = buildUrl(path, params);
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   if (process.env.NODE_ENV !== 'production') {
     console.log('[api]', requestOptions.method || 'GET', requestUrl);
   }
@@ -59,11 +60,11 @@ export async function apiRequest(path, options = {}) {
     ...requestOptions,
     headers: {
       Accept: 'application/json',
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...headers,
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
   });
 
   return parseResponse(response);
