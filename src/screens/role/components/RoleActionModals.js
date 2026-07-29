@@ -990,7 +990,7 @@ function RefereeRaceModal({
                 {simulationConfirmed && (
                   <Pressable style={styles.primaryAction} onPress={onFinalizeResults}>
                     <Text style={styles.primaryActionText}>
-                      {simulationDraft?.version ? 'Chốt kết quả' : 'Tải bản nháp'}
+                      {simulationDraft?.version ? 'Xác nhận & công bố' : 'Tải bản nháp'}
                     </Text>
                   </Pressable>
                 )}

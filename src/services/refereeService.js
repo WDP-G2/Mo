@@ -201,7 +201,7 @@ export const refereeService = {
       method: 'PUT',
       body: { status },
     });
-    return mapParticipant(participant, { id: raceId });
+    return mapParticipant(participant, { id: raceId, statusCode: 'SCHEDULED' });
   },
 
   updateParticipantGate(raceId, participantId, gateNumber) {

@@ -36,6 +36,7 @@ import {
   sameOwnerFlowId,
   uniqueAcceptedRaceHorseInvitations,
 } from '../../utils/ownerFlow.mjs';
+import { applyParticipantCheckIn } from '../../utils/refereeFlow.mjs';
 import { RoleActionModals } from './components/RoleActionModals';
 import { SearchBox, ListItem, EmptyText } from './components/RolePrimitives';
 import {
@@ -513,14 +514,13 @@ export default function RoleHomeScreen({ user, onLogout }) {
     const participant = (data.participants || []).find((item) => item.id === participantId);
     try {
       const updated = await refereeService.checkInParticipant(raceId, participantId, status);
-      setData((current) => ({
-        ...current,
-        participants: (current.participants || []).map((item) =>
-          item.id === participantId
-            ? { ...item, ...updated, raceId: item.raceId, raceName: item.raceName, tournamentName: item.tournamentName }
-            : item,
-        ),
-      }));
+      setData((current) =>
+        applyParticipantCheckIn(current, {
+          raceId,
+          participantId,
+          participant: updated,
+        }),
+      );
       recordActivity(
         status === 'CHECKED_IN' ? 'checkmark-done-outline' : 'remove-circle-outline',
         status === 'CHECKED_IN' ? 'Đã check-in participant' : 'Đã đánh dấu vắng mặt',
@@ -1208,7 +1208,10 @@ export default function RoleHomeScreen({ user, onLogout }) {
       setSimulationDraft(confirmed?.resultDraft || null);
       setSimulationConfirmed(true);
       recordActivity('checkmark-circle-outline', 'Đã xác nhận mô phỏng', selectedRefereeRace.name || 'Race');
-      showAlert('Thành công', 'Đã xác nhận kết quả mô phỏng. Bản nháp đã sẵn sàng để chốt.');
+      showAlert(
+        'Thành công',
+        'Đã xác nhận kết quả mô phỏng. Hãy kiểm tra bản nháp trước khi công bố kết quả chính thức.',
+      );
     } catch (err) {
       showAlert('Lỗi', err.message || 'Xác nhận thất bại.');
     } finally {
@@ -1216,8 +1219,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
     }
   }
 
-  // Finalize Race Results Handler
-  async function finalizeRaceResults() {
+  async function publishRaceResults() {
     if (!selectedRefereeRace || !simulationResult) return;
     try {
       setLoading(true);
@@ -1226,15 +1228,45 @@ export default function RoleHomeScreen({ user, onLogout }) {
         throw new Error('Chưa có bản nháp kết quả. Vui lòng xác nhận mô phỏng trước.');
       }
       await refereeService.finalizeResults(selectedRefereeRace.id, { draftVersion: draft.version });
-      recordActivity('trophy-outline', 'Đã chốt kết quả race', selectedRefereeRace.name || 'Race');
-      showAlert('Thành công', 'Đã chốt kết quả cuộc đua thành công.');
+      setData((current) => ({
+        ...current,
+        races: (current.races || []).map((race) =>
+          race.id === selectedRefereeRace.id
+            ? {
+                ...race,
+                status: 'Đã công bố kết quả',
+                statusCode: 'RESULT_CONFIRMED',
+                canStart: false,
+              }
+            : race,
+        ),
+      }));
+      recordActivity(
+        'trophy-outline',
+        'Đã xác nhận và công bố kết quả',
+        selectedRefereeRace.name || 'Race',
+      );
       setRefereeRaceModalVisible(false);
       refreshData();
+      showAlert('Thành công', 'Kết quả chính thức đã được xác nhận và công bố.');
     } catch (err) {
-      showAlert('Lỗi', err.message || 'Chốt kết quả thất bại.');
+      showAlert('Lỗi', err.message || 'Không công bố được kết quả.');
     } finally {
       setLoading(false);
     }
+  }
+
+  // Finalize Race Results Handler
+  function finalizeRaceResults() {
+    if (!selectedRefereeRace || !simulationResult) return;
+    showAlert(
+      'Xác nhận công bố kết quả',
+      'Kết quả sau khi công bố sẽ trở thành kết quả chính thức và không thể chỉnh sửa. Bạn có chắc chắn tiếp tục?',
+      [
+        { text: 'Kiểm tra lại' },
+        { text: 'Xác nhận & công bố', onPress: publishRaceResults },
+      ],
+    );
   }
 
   // Open Violation Modal Handler
