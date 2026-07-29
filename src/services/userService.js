@@ -28,6 +28,11 @@ export const userService = {
     return (Array.isArray(list) ? list : []).map(mapUser).filter(Boolean);
   },
 
+  async listJockeyDirectory() {
+    const list = await apiRequest(ENDPOINTS.users.jockeyDirectory);
+    return (Array.isArray(list) ? list : []).map(mapUser).filter(Boolean);
+  },
+
   async getProfile() {
     const user = await apiRequest(ENDPOINTS.users.profile);
     return mapUser(user);

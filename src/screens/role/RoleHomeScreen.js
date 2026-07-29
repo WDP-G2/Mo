@@ -308,7 +308,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       setLoading(true);
       const [horses, jockeys] = await Promise.all([
         ownerService.listHorses(),
-        userService.list({ role: 'JOCKEY' })
+        userService.listJockeyDirectory(),
       ]);
       setOwnerHorses(horses);
       setAllJockeys(jockeys);
@@ -345,7 +345,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       });
       setInviteModalVisible(true);
     } catch (err) {
-      Alert.alert('Lỗi', 'Không lấy được thông tin ngựa và jockey.');
+      Alert.alert('Lỗi', err.message || 'Không lấy được thông tin ngựa và jockey.');
     } finally {
       setLoading(false);
     }
