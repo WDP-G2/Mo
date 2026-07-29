@@ -16,6 +16,7 @@ import { colors } from '../../constants/theme';
 import { horseService } from '../../services/horseService';
 import { invitationService } from '../../services/invitationService';
 import { jockeyService } from '../../services/jockeyService';
+import { notificationService } from '../../services/notificationService';
 import { ownerService } from '../../services/ownerService';
 import { refereeService } from '../../services/refereeService';
 import { spectatorService } from '../../services/spectatorService';
@@ -57,6 +58,24 @@ const emptyNewHorse = {
   healthStatus: 'Khỏe mạnh',
   racingStatus: 'can-race',
 };
+
+function tournamentOpenForRegistration(tournament) {
+  return [
+    tournament?.statusCode,
+    tournament?.status,
+  ].some((value) =>
+    ['OPEN_REGISTRATION', 'Đang mở đăng ký', 'OPEN'].includes(String(value || '').trim()),
+  );
+}
+
+function raceOpenForRegistration(race) {
+  return [
+    race?.statusCode,
+    race?.status,
+  ].some((value) =>
+    ['OPEN_REGISTRATION', 'SCHEDULED', 'Đang mở đăng ký', 'Sắp chạy', 'Sắp diễn ra'].includes(String(value || '').trim()),
+  );
+}
 
 function horseToForm(horse) {
   return {
@@ -117,6 +136,9 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [inviteError, setInviteError] = useState('');
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const [activityLog, setActivityLog] = useState([]);
+  const [serverNotifications, setServerNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState('');
 
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
   const [registerForm, setRegisterForm] = useState({
@@ -163,10 +185,37 @@ export default function RoleHomeScreen({ user, onLogout }) {
     };
   }
 
+  async function loadNotifications({ silent = false } = {}) {
+    try {
+      if (!silent) setNotificationsLoading(true);
+      setNotificationsError('');
+      const page = await notificationService.list({ size: 50 });
+      setServerNotifications(page.content || []);
+    } catch (requestError) {
+      setNotificationsError(requestError.message || 'Không tải được thông báo.');
+    } finally {
+      if (!silent) setNotificationsLoading(false);
+    }
+  }
+
+  function refreshAll() {
+    refreshData();
+    loadNotifications();
+  }
+
   useEffect(() => {
     const cleanup = refreshData();
     return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
+
+  useEffect(() => {
+    loadNotifications({ silent: true });
+    const timer = setInterval(() => {
+      loadNotifications({ silent: true });
+    }, 10000);
+
+    return () => clearInterval(timer);
   }, [role]);
 
   useEffect(() => {
@@ -176,6 +225,14 @@ export default function RoleHomeScreen({ user, onLogout }) {
   }, [activeTab, visibleTabs]);
 
   const stats = useMemo(() => buildStats(role, data), [data, role]);
+  const notificationItems = useMemo(
+    () => [...activityLog, ...serverNotifications].slice(0, 60),
+    [activityLog, serverNotifications],
+  );
+  const notificationBadgeCount = useMemo(
+    () => activityLog.length + serverNotifications.filter((item) => !item.read).length,
+    [activityLog, serverNotifications],
+  );
 
   function recordActivity(icon, title, detail) {
     const createdAt = new Date();
@@ -186,9 +243,41 @@ export default function RoleHomeScreen({ user, onLogout }) {
         title,
         detail,
         time: createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        read: false,
+        source: 'local',
       },
       ...current,
     ].slice(0, 30));
+  }
+
+  async function openNotifications() {
+    setActivityModalVisible(true);
+    loadNotifications();
+  }
+
+  async function markNotificationRead(item) {
+    if (!item || item.source !== 'server' || item.read) return;
+    setServerNotifications((current) =>
+      current.map((notification) =>
+        notification.id === item.id ? { ...notification, read: true } : notification,
+      ),
+    );
+    try {
+      await notificationService.markRead(item.id);
+    } catch {
+      loadNotifications({ silent: true });
+    }
+  }
+
+  async function markAllNotificationsRead() {
+    setActivityLog([]);
+    setServerNotifications((current) => current.map((item) => ({ ...item, read: true })));
+    try {
+      await notificationService.markAllRead();
+    } catch (requestError) {
+      setNotificationsError(requestError.message || 'Không đánh dấu được thông báo.');
+      loadNotifications({ silent: true });
+    }
   }
 
   async function handleInvitationResponse(id, action) {
@@ -474,13 +563,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       const openRaces = [];
       (tournaments || []).forEach(t => {
         (t.races || []).forEach(r => {
-          if (
-            r.statusCode === 'OPEN_REGISTRATION' ||
-            r.statusCode === 'SCHEDULED' ||
-            r.status === 'Đang mở đăng ký' ||
-            r.status === 'Sắp chạy' ||
-            r.status === 'Sắp diễn ra'
-          ) {
+          if (raceOpenForRegistration(r)) {
             openRaces.push({
               id: r.id || r._id,
               name: `Race R${r.raceNumber} · ${r.name}`,
@@ -558,14 +641,14 @@ export default function RoleHomeScreen({ user, onLogout }) {
         ownerService.listHorses(),
         ownerService.listJockeyInvitations(),
       ]);
-      const openTournaments = (tournaments || []).filter(t => t.status === 'Đang mở đăng ký');
+      const openTournaments = (tournaments || []).filter(tournamentOpenForRegistration);
       const acceptedInvitations = (invitations || []).filter((item) => item.status === 'Đã chấp nhận');
       setOwnerTournaments(openTournaments);
       setOwnerHorses(horses);
       setRegisterJockeys(acceptedInvitations);
 
       if (openTournaments.length > 0) {
-        const races = openTournaments[0].races || [];
+        const races = (openTournaments[0].races || []).filter(raceOpenForRegistration);
         const selectedRaceId = races[0]?.id || races[0]?._id || '';
         const raceInvitation = acceptedInvitations.find((item) => String(item.raceId) === String(selectedRaceId));
         setTournamentRaces(races);
@@ -590,7 +673,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   // Change selected tournament in register form
   function handleRegisterTournamentChange(tournamentId) {
     const t = ownerTournaments.find(item => (item.id || item._id) === tournamentId);
-    const races = t ? (t.races || []) : [];
+    const races = t ? (t.races || []).filter(raceOpenForRegistration) : [];
     setTournamentRaces(races);
     const nextRaceId = races[0]?.id || races[0]?._id || '';
     const raceInvitation = registerJockeys.find((item) => String(item.raceId) === String(nextRaceId));
@@ -754,14 +837,14 @@ export default function RoleHomeScreen({ user, onLogout }) {
             <Text style={styles.title} numberOfLines={1}>{name}</Text>
           </View>
           <View style={styles.headerActions}>
-            <Pressable style={styles.refreshButton} onPress={refreshData}>
+            <Pressable style={styles.refreshButton} onPress={refreshAll}>
               <Ionicons name="refresh-outline" size={19} color={colors.darkText} />
             </Pressable>
-            <Pressable style={styles.refreshButton} onPress={() => setActivityModalVisible(true)}>
+            <Pressable style={styles.refreshButton} onPress={openNotifications}>
               <Ionicons name="notifications-outline" size={19} color={colors.darkText} />
-              {activityLog.length ? (
+              {notificationBadgeCount ? (
                 <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>{activityLog.length > 9 ? '9+' : activityLog.length}</Text>
+                  <Text style={styles.notificationBadgeText}>{notificationBadgeCount > 9 ? '9+' : notificationBadgeCount}</Text>
                 </View>
               ) : null}
             </Pressable>
@@ -944,16 +1027,19 @@ export default function RoleHomeScreen({ user, onLogout }) {
 
         <ActivityLogModal
           visible={activityModalVisible}
-          items={activityLog}
-          onClear={() => setActivityLog([])}
+          items={notificationItems}
+          loading={notificationsLoading}
+          error={notificationsError}
+          onClear={markAllNotificationsRead}
           onClose={() => setActivityModalVisible(false)}
+          onPressItem={markNotificationRead}
         />
       </View>
     </SafeAreaView>
   );
 }
 
-function ActivityLogModal({ visible, items, onClear, onClose }) {
+function ActivityLogModal({ visible, items, loading, error, onClear, onClose, onPressItem }) {
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.activityBackdrop}>
@@ -969,30 +1055,45 @@ function ActivityLogModal({ visible, items, onClear, onClose }) {
           </View>
 
           <ScrollView style={styles.activityList} contentContainerStyle={styles.activityListContent}>
-            {items.length ? (
+            {loading ? (
+              <View style={styles.activityEmpty}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={styles.activityEmptyText}>Đang tải thông báo...</Text>
+              </View>
+            ) : null}
+            {error ? <Text style={styles.activityError}>{error}</Text> : null}
+            {!loading && items.length ? (
               items.map((item) => (
-                <View key={item.id} style={styles.activityItem}>
+                <Pressable
+                  key={`${item.source || 'item'}-${item.id}`}
+                  style={[styles.activityItem, !item.read && styles.activityItemUnread]}
+                  onPress={() => onPressItem(item)}
+                >
                   <View style={styles.activityIcon}>
                     <Ionicons name={item.icon} size={18} color={colors.primary} />
                   </View>
                   <View style={styles.activityCopy}>
-                    <Text style={styles.activityItemTitle}>{item.title}</Text>
+                    <View style={styles.activityTitleRow}>
+                      {!item.read ? <View style={styles.activityUnreadDot} /> : null}
+                      <Text style={styles.activityItemTitle}>{item.title}</Text>
+                    </View>
                     <Text style={styles.activityDetail} numberOfLines={2}>{item.detail}</Text>
                   </View>
                   <Text style={styles.activityTime}>{item.time}</Text>
-                </View>
+                </Pressable>
               ))
-            ) : (
+            ) : null}
+            {!loading && !items.length ? (
               <View style={styles.activityEmpty}>
                 <Ionicons name="notifications-outline" size={34} color={colors.darkTextMuted} />
-                <Text style={styles.activityEmptyText}>Chưa có thao tác nào trong phiên này.</Text>
+                <Text style={styles.activityEmptyText}>Chưa có thông báo nào.</Text>
               </View>
-            )}
+            ) : null}
           </ScrollView>
 
           <View style={styles.activityFooter}>
             <Pressable style={styles.activitySecondaryButton} onPress={onClear}>
-              <Text style={styles.activitySecondaryText}>Xóa nhật ký</Text>
+              <Text style={styles.activitySecondaryText}>Đọc tất cả</Text>
             </Pressable>
             <Pressable style={styles.activityPrimaryButton} onPress={onClose}>
               <Text style={styles.activityPrimaryText}>Đóng</Text>
@@ -1139,6 +1240,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1D2A40',
     paddingVertical: 11,
   },
+  activityItemUnread: {
+    borderRadius: 12,
+    backgroundColor: 'rgba(212, 160, 23, 0.08)',
+    paddingHorizontal: 10,
+  },
   activityIcon: {
     width: 38,
     height: 38,
@@ -1149,6 +1255,17 @@ const styles = StyleSheet.create({
   },
   activityCopy: {
     flex: 1,
+  },
+  activityTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  activityUnreadDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
   },
   activityItemTitle: {
     color: colors.darkText,
@@ -1177,6 +1294,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     textAlign: 'center',
+  },
+  activityError: {
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.28)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(244, 63, 94, 0.12)',
+    color: '#fecdd3',
+    fontSize: 12,
+    fontWeight: '800',
+    padding: 12,
   },
   activityFooter: {
     flexDirection: 'row',

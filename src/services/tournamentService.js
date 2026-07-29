@@ -4,6 +4,34 @@ import { ENDPOINTS } from '../api/endpoints';
 const FALLBACK_BANNER =
   'https://images.unsplash.com/photo-1507514604110-ba3347c457f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1600';
 
+const REGISTRATION_STATUS_LABELS = {
+  PENDING: 'Chờ duyệt',
+  APPROVED: 'Đã duyệt',
+  ONGOING: 'Đang chạy',
+  COMPLETED: 'Hoàn thành',
+  REJECTED: 'Từ chối',
+  WITHDRAWN: 'Đã rút',
+  CANCELLED: 'Đã hủy',
+};
+
+const STATUS_LABEL_TO_CODE = {
+  'Chờ duyệt': 'PENDING',
+  'Đã duyệt': 'APPROVED',
+  'Đang chạy': 'ONGOING',
+  'Đang diễn ra': 'ONGOING',
+  'Hoàn thành': 'COMPLETED',
+  'Từ chối': 'REJECTED',
+  'Đã rút': 'WITHDRAWN',
+  'Đã hủy': 'CANCELLED',
+};
+
+function normalizeRegistrationStatus(status) {
+  if (!status) return 'PENDING';
+  const value = String(status).trim();
+  if (REGISTRATION_STATUS_LABELS[value]) return value;
+  return STATUS_LABEL_TO_CODE[value] || value.toUpperCase();
+}
+
 function toDateLabel(value) {
   if (!value) return 'Chưa cập nhật';
   const date = new Date(value);
@@ -17,6 +45,8 @@ function toDateLabel(value) {
 
 function mapRegistration(item) {
   if (!item) return null;
+  const statusCode = normalizeRegistrationStatus(item.statusCode || item.status || item.approval);
+  const status = REGISTRATION_STATUS_LABELS[statusCode] || statusCode;
 
   return {
     id: String(item.id || item._id || ''),
@@ -35,8 +65,11 @@ function mapRegistration(item) {
     ownerName: item.ownerName || item.fullName || '',
     jockeyId: item.jockeyId || '',
     jockeyName: item.jockeyName || item.jockey || '',
-    status: item.status || item.approval || 'Chờ duyệt',
+    statusCode,
+    status,
     notes: item.notes || '',
+    reviewNote: item.reviewNote || '',
+    withdrawNote: item.withdrawNote || '',
     registeredAt: item.registeredAt || '',
     horseHealth: item.horseHealth || '',
     horseWins: Number(item.horseWins || 0),
@@ -72,6 +105,7 @@ export function mapTournament(tournament) {
     id: String(tournament.id || tournament._id),
     name: tournament.name || '',
     status: tournament.status || 'Nháp',
+    statusCode: tournament.statusCode || tournament.status || '',
     location: tournament.location || 'Chưa cập nhật',
     banner: tournament.banner || FALLBACK_BANNER,
     startDate: tournament.startDate,
@@ -80,7 +114,7 @@ export function mapTournament(tournament) {
     raceCount: tournament.raceCount ?? races.length,
     races: races.map(mapRace).filter(Boolean),
     registrationCount: tournament.registrationCount ?? registrations.length,
-    pendingCount: registrations.filter((item) => item.status === 'Chờ duyệt').length,
+    pendingCount: registrations.filter((item) => normalizeRegistrationStatus(item.statusCode || item.status) === 'PENDING').length,
     openRaceCount: tournament.openRaceCount ?? 0,
   };
 }

@@ -28,6 +28,12 @@ export const ENDPOINTS = {
     createDepositOrder: '/wallets/me/deposit-orders',
     payDepositOrderWithCard: (id) => `/wallets/me/deposit-orders/${id}/pay-with-card`,
   },
+  notifications: {
+    list: '/notifications',
+    unreadCount: '/notifications/unread-count',
+    markRead: (id) => `/notifications/${id}/read`,
+    markAllRead: '/notifications/read-all',
+  },
   invitations: {
     list: '/invitations',
     me: '/invitations/me',

@@ -103,6 +103,8 @@ async function run() {
     expectArray(await request('GET', 'owner/race-registrations', { token: tokens.owner }), 'owner race registrations');
     expectArray(await request('GET', 'owner/jockey-invitations', { token: tokens.owner }), 'owner jockey invitations');
     expectArray(await request('GET', 'tournaments/owner/open', { token: tokens.owner }), 'owner open tournaments');
+    expectObject(await request('GET', 'notifications?size=5', { token: tokens.owner }), 'owner notifications');
+    expectObject(await request('GET', 'notifications/unread-count', { token: tokens.owner }), 'owner unread notifications');
   });
 
   await step('JOCKEY read endpoints', async () => {
@@ -112,6 +114,8 @@ async function run() {
     expectArray(await request('GET', 'jockey/prizes', { token: tokens.jockey }), 'jockey prizes');
     expectObject(await request('GET', 'jockey/profile', { token: tokens.jockey }), 'jockey profile');
     expectArray(await request('GET', 'jockey/invitations', { token: tokens.jockey }), 'jockey invitations');
+    expectObject(await request('GET', 'notifications?size=5', { token: tokens.jockey }), 'jockey notifications');
+    expectObject(await request('GET', 'notifications/unread-count', { token: tokens.jockey }), 'jockey unread notifications');
   });
 
   await step('REFEREE read endpoints', async () => {
@@ -121,6 +125,8 @@ async function run() {
     expectArray(await request('GET', 'referee/payments', { token: tokens.referee }), 'referee payments');
     expectArray(await request('GET', 'referee/invitations', { token: tokens.referee }), 'referee invitations');
     expectArray(await request('GET', 'referee/violations', { token: tokens.referee }), 'referee violations');
+    expectObject(await request('GET', 'notifications?size=5', { token: tokens.referee }), 'referee notifications');
+    expectObject(await request('GET', 'notifications/unread-count', { token: tokens.referee }), 'referee unread notifications');
 
     if (races[0]?.id) {
       expectArray(
@@ -137,6 +143,8 @@ async function run() {
     expectArray(await request('GET', 'tournaments', { token: tokens.spectator }), 'spectator tournaments');
     expectArray(await request('GET', 'horses', { token: tokens.spectator }), 'spectator horses');
     expectArray(await request('GET', 'news', { token: tokens.spectator }), 'spectator news');
+    expectObject(await request('GET', 'notifications?size=5', { token: tokens.spectator }), 'spectator notifications');
+    expectObject(await request('GET', 'notifications/unread-count', { token: tokens.spectator }), 'spectator unread notifications');
   });
 }
 

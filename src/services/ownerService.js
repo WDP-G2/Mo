@@ -2,9 +2,38 @@ import { apiRequest } from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
 import { mapHorse } from './horseService';
 
+const REGISTRATION_STATUS_LABELS = {
+  PENDING: 'Chờ duyệt',
+  APPROVED: 'Đã duyệt',
+  ONGOING: 'Đang chạy',
+  COMPLETED: 'Hoàn thành',
+  REJECTED: 'Từ chối',
+  WITHDRAWN: 'Đã rút',
+  CANCELLED: 'Đã hủy',
+};
+
+const STATUS_LABEL_TO_CODE = {
+  'Chờ duyệt': 'PENDING',
+  'Đã duyệt': 'APPROVED',
+  'Đang chạy': 'ONGOING',
+  'Đang diễn ra': 'ONGOING',
+  'Hoàn thành': 'COMPLETED',
+  'Từ chối': 'REJECTED',
+  'Đã rút': 'WITHDRAWN',
+  'Đã hủy': 'CANCELLED',
+};
+
+function normalizeRegistrationStatus(status) {
+  if (!status) return 'PENDING';
+  const value = String(status).trim();
+  if (REGISTRATION_STATUS_LABELS[value]) return value;
+  return STATUS_LABEL_TO_CODE[value] || value.toUpperCase();
+}
+
 function mapRegistration(item) {
   if (!item) return null;
-  const status = item.status || item.approval || 'Chờ duyệt';
+  const statusCode = normalizeRegistrationStatus(item.statusCode || item.status || item.approval);
+  const status = REGISTRATION_STATUS_LABELS[statusCode] || statusCode;
 
   return {
     id: String(item.id || item._id || ''),
@@ -16,9 +45,12 @@ function mapRegistration(item) {
     horseName: item.horseName || item.horse || '',
     jockeyId: item.jockeyId || '',
     jockeyName: item.jockeyName || item.jockey || '',
+    statusCode,
     status,
+    reviewNote: item.reviewNote || '',
+    withdrawNote: item.withdrawNote || '',
     createdAt: item.createdAt || item.registeredAt || '',
-    canWithdraw: ['Chờ duyệt', 'Đã duyệt'].includes(status),
+    canWithdraw: statusCode === 'PENDING',
   };
 }
 
