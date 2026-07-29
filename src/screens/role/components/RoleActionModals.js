@@ -46,7 +46,7 @@ function BetModal({
           <ModalHeader title="Đặt cược ảo" onClose={onClose} />
 
           {selectedMarket && (
-            <ScrollView>
+            <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={styles.modalLabel}>Cuộc đua: {selectedMarket.raceName}</Text>
               <Text style={styles.modalLabel}>Giải đấu: {selectedMarket.tournamentName}</Text>
               <Text style={styles.modalLabel}>
@@ -97,7 +97,7 @@ function DepositModal({ visible, depositAmount, cardInfo, onChangeDepositAmount,
         <View style={styles.modalContent}>
           <ModalHeader title="Nạp tiền vào ví" onClose={onClose} />
 
-          <ScrollView>
+          <ScrollView keyboardShouldPersistTaps="handled">
             <Text style={styles.modalLabel}>Chọn số tiền nhanh:</Text>
             <View style={styles.presetRow}>
               {['50000', '100000', '200000', '500000'].map((preset) => {
@@ -229,7 +229,7 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
         <View style={styles.modalContent}>
           <ModalHeader title={editing ? 'Sửa thông tin ngựa' : 'Thêm ngựa thi đấu mới'} onClose={onClose} />
 
-          <ScrollView>
+          <ScrollView keyboardShouldPersistTaps="handled">
             <Text style={styles.modalLabel}>Tên ngựa:</Text>
             <TextInput
               style={styles.modalInput}
@@ -392,7 +392,7 @@ function JockeyInviteModal({
         <View style={styles.modalContent}>
           <ModalHeader title="Gửi lời mời Jockey" onClose={onClose} />
 
-          <ScrollView>
+          <ScrollView keyboardShouldPersistTaps="handled">
             <SelectorList
               label="Chọn ngựa của bạn:"
               items={ownerHorses}
@@ -463,7 +463,7 @@ function RaceRegistrationModal({
         <View style={styles.modalContent}>
           <ModalHeader title="Đăng ký giải đấu" onClose={onClose} />
 
-          <ScrollView>
+          <ScrollView keyboardShouldPersistTaps="handled">
             <SelectorList
               label="Chọn giải đấu:"
               items={ownerTournaments}
@@ -552,7 +552,7 @@ function RefereeRaceModal({
                   <Text style={styles.centerText}>Đang mô phỏng diễn biến...</Text>
                 </View>
               ) : simulationResult ? (
-                <ScrollView style={styles.resultList}>
+                <ScrollView style={styles.resultList} keyboardShouldPersistTaps="handled">
                   <Text style={styles.modalLabel}>Bảng kết quả dự kiến:</Text>
                   {(simulationResult.participants || [])
                     .sort((a, b) => a.rank - b.rank)
@@ -618,7 +618,7 @@ function ViolationModal({
               <ModalHeader title="Lập biên bản vi phạm" onClose={onClose} />
               <Text style={styles.modalLabel}>Race: {selectedViolationRace.name}</Text>
 
-              <ScrollView>
+              <ScrollView keyboardShouldPersistTaps="handled">
                 <SelectorList
                   label="Chọn Jockey/Ngựa vi phạm:"
                   items={violationParticipants}

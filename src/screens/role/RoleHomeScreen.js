@@ -425,8 +425,13 @@ export default function RoleHomeScreen({ user, onLogout }) {
 
   // Create Jockey Invitation Handler
   async function submitJockeyInvitation() {
-    if (!inviteForm.horseId || !inviteForm.jockeyId) {
-      showAlert('Lỗi', 'Vui lòng chọn ngựa và jockey.');
+    if (!inviteForm.horseId || !inviteForm.raceId || !inviteForm.jockeyId) {
+      showAlert('Lỗi', 'Vui lòng chọn ngựa, cuộc đua và jockey.');
+      return;
+    }
+
+    if (!Number(inviteForm.remunerationAmount)) {
+      showAlert('Lỗi', 'Vui lòng nhập mức thù lao hợp lệ.');
       return;
     }
 
