@@ -69,6 +69,31 @@ function violationEvidenceCount(item) {
   return (item?.evidence || []).filter((ev) => ev?.url).length + (item?.imageFile?.uri ? 1 : 0);
 }
 
+function violationEvidenceUris(item) {
+  return [
+    ...(item?.evidence || []).map((ev) => ev?.url).filter(Boolean),
+    item?.imageFile?.uri,
+  ].filter(Boolean);
+}
+
+function ViolationEvidencePreview({ item }) {
+  const uris = violationEvidenceUris(item);
+  if (!uris.length) return null;
+
+  return (
+    <View style={{ marginTop: 10 }}>
+      <Text style={styles.detailSectionTitle}>Ảnh bằng chứng</Text>
+      {uris.map((uri, index) => (
+        <Image
+          key={`${uri}-${index}`}
+          source={{ uri }}
+          style={{ width: '100%', height: 180, borderRadius: 10, resizeMode: 'cover', marginTop: 8 }}
+        />
+      ))}
+    </View>
+  );
+}
+
 export function Overview({
   role,
   stats,
@@ -949,7 +974,7 @@ function GateInput({ value, onChange }) {
 }
 
 function RefereeRaceDetailModal({ race, data, onClose, onParticipantCheckIn, onOpenViolationModal, onStartRace, onOpenRefereeRaceModal, onUpdateGate, onRandomizeGates }) {
-  const [selectedViolation, setSelectedViolation] = useState(null);
+  const [selectedViolationKey, setSelectedViolationKey] = useState('');
   if (!race) return null;
 
   const payment = (data.payments || []).find((p) => String(p.raceId) === String(race.id));
@@ -1158,8 +1183,12 @@ function RefereeRaceDetailModal({ race, data, onClose, onParticipantCheckIn, onO
                 </Pressable>
               ) : null}
             </View>
-            {visibleViolations.map((item) => (
-              <Pressable key={item.id || violationSignature(item)} style={styles.detailListItemCol} onPress={() => setSelectedViolation(item)}>
+            {visibleViolations.map((item) => {
+              const itemKey = item.id || violationSignature(item);
+              const expanded = selectedViolationKey === itemKey;
+              return (
+              <View key={itemKey} style={styles.detailListItemCol}>
+              <Pressable onPress={() => setSelectedViolationKey(expanded ? '' : itemKey)}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={styles.detailItemTitle} numberOfLines={2}>
                     {item.horse || item.horseName || 'Ngựa'} (Nài: {item.jockey || item.jockeyName || 'Chưa rõ'})
@@ -1179,11 +1208,14 @@ function RefereeRaceDetailModal({ race, data, onClose, onParticipantCheckIn, onO
                 ) : null}
                 {violationEvidenceCount(item) > 0 ? (
                   <Text style={[styles.detailItemMeta, { color: colors.primary, marginTop: 4 }]}>
-                    Có {violationEvidenceCount(item)} ảnh bằng chứng · Bấm để xem
+                    {expanded ? 'Ẩn ảnh bằng chứng' : `Có ${violationEvidenceCount(item)} ảnh bằng chứng · Bấm để xem`}
                   </Text>
                 ) : null}
               </Pressable>
-            ))}
+              {expanded ? <ViolationEvidencePreview item={item} /> : null}
+              </View>
+              );
+            })}
             {violations.length > visibleViolations.length ? (
               <Text style={[styles.detailItemMeta, { marginTop: 8, textAlign: 'center' }]}>
                 Đang ẩn {violations.length - visibleViolations.length} biên bản trùng/cũ để app nhẹ hơn.
@@ -1199,7 +1231,6 @@ function RefereeRaceDetailModal({ race, data, onClose, onParticipantCheckIn, onO
               </Pressable>
             </View>
           </ScrollView>
-          <ViolationDetailModal item={selectedViolation} onClose={() => setSelectedViolation(null)} />
         </View>
       </View>
     </Modal>
