@@ -32,6 +32,18 @@ const tabs = [
   { key: 'account', icon: 'person-outline', activeIcon: 'person', label: 'Tài khoản' },
 ];
 
+const emptyNewHorse = {
+  name: '',
+  breed: '',
+  age: '',
+  gender: '',
+  color: '',
+  height: '',
+  weight: '',
+  healthStatus: 'Khỏe mạnh',
+  racingStatus: 'can-race',
+};
+
 export default function RoleHomeScreen({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [query, setQuery] = useState('');
@@ -52,7 +64,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [cardInfo, setCardInfo] = useState({ cardNumber: '4111111111111111', cardName: 'NGUYEN VAN A', expiry: '01/25', cvv: '123' });
 
   const [horseModalVisible, setHorseModalVisible] = useState(false);
-  const [newHorse, setNewHorse] = useState({ name: '', breed: '', age: '', healthStatus: 'Khỏe mạnh' });
+  const [newHorse, setNewHorse] = useState(emptyNewHorse);
 
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [inviteForm, setInviteForm] = useState({ horseId: '', raceId: '', jockeyId: '', message: '', remunerationAmount: '' });
@@ -279,7 +291,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       await horseService.create(newHorse);
       Alert.alert('Thành công', `Đã thêm ngựa ${newHorse.name} thành công.`);
       setHorseModalVisible(false);
-      setNewHorse({ name: '', breed: '', age: '', healthStatus: 'Khỏe mạnh' });
+      setNewHorse(emptyNewHorse);
       refreshData();
     } catch (err) {
       Alert.alert('Lỗi', err.message || 'Không thêm được ngựa.');

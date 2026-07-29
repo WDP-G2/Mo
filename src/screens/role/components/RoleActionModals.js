@@ -200,6 +200,61 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
               onChangeText={(val) => onChangeNewHorse((curr) => ({ ...curr, age: val }))}
             />
 
+            <Text style={styles.modalLabel}>Giới tính:</Text>
+            <View style={styles.modalSelector}>
+              {[
+                { value: 'MALE', label: 'Đực' },
+                { value: 'FEMALE', label: 'Cái' },
+              ].map((item) => {
+                const active = newHorse.gender === item.value;
+                return (
+                  <Pressable
+                    key={item.value}
+                    style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
+                    onPress={() => onChangeNewHorse((curr) => ({ ...curr, gender: item.value }))}
+                  >
+                    <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.modalLabel}>Màu lông:</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Ví dụ: Hồng mã"
+              placeholderTextColor={colors.darkTextMuted}
+              value={newHorse.color}
+              onChangeText={(val) => onChangeNewHorse((curr) => ({ ...curr, color: val }))}
+            />
+
+            <View style={styles.cardInlineRow}>
+              <View style={styles.flexInput}>
+                <Text style={styles.modalLabel}>Chiều cao (cm):</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  keyboardType="numeric"
+                  placeholder="Ví dụ: 160"
+                  placeholderTextColor={colors.darkTextMuted}
+                  value={newHorse.height}
+                  onChangeText={(val) => onChangeNewHorse((curr) => ({ ...curr, height: val }))}
+                />
+              </View>
+              <View style={styles.flexInput}>
+                <Text style={styles.modalLabel}>Cân nặng (kg):</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  keyboardType="numeric"
+                  placeholder="Ví dụ: 480"
+                  placeholderTextColor={colors.darkTextMuted}
+                  value={newHorse.weight}
+                  onChangeText={(val) => onChangeNewHorse((curr) => ({ ...curr, weight: val }))}
+                />
+              </View>
+            </View>
+
             <Text style={styles.modalLabel}>Trạng thái sức khỏe:</Text>
             <View style={styles.modalSelector}>
               {['Khỏe mạnh', 'Chấn thương nhẹ', 'Cần theo dõi'].map((status) => {
@@ -212,6 +267,27 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
                   >
                     <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
                       {status}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.modalLabel}>Trạng thái thi đấu:</Text>
+            <View style={styles.modalSelector}>
+              {[
+                { value: 'can-race', label: 'Có thể thi đấu' },
+                { value: 'cannot-race', label: 'Tạm ngưng' },
+              ].map((item) => {
+                const active = newHorse.racingStatus === item.value;
+                return (
+                  <Pressable
+                    key={item.value}
+                    style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
+                    onPress={() => onChangeNewHorse((curr) => ({ ...curr, racingStatus: item.value }))}
+                  >
+                    <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
+                      {item.label}
                     </Text>
                   </Pressable>
                 );
