@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -190,6 +191,34 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
     }));
   }
 
+  async function pickHorseDocument() {
+    const result = await DocumentPicker.getDocumentAsync({
+      copyToCacheDirectory: true,
+      multiple: false,
+      type: [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ],
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const asset = result.assets[0];
+    onChangeNewHorse((curr) => ({
+      ...curr,
+      documentFile: {
+        uri: asset.uri,
+        name: asset.name || `horse-health-document-${Date.now()}`,
+        type: asset.mimeType || 'application/pdf',
+      },
+    }));
+  }
+
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
@@ -225,6 +254,32 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
                     onPress={() => onChangeNewHorse((curr) => ({ ...curr, imageFile: null }))}
                   >
                     <Text style={styles.removeImageText}>Xóa ảnh</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+
+            <Text style={styles.modalLabel}>Giấy sức khỏe / chứng nhận:</Text>
+            <Pressable style={styles.imagePickerButton} onPress={pickHorseDocument}>
+              <Ionicons name="document-attach-outline" size={18} color={colors.primary} />
+              <Text style={styles.imagePickerText}>
+                {newHorse.documentFile?.uri ? 'Đổi giấy chứng nhận' : 'Chọn giấy chứng nhận'}
+              </Text>
+            </Pressable>
+            {newHorse.documentFile?.uri ? (
+              <View style={styles.filePreviewRow}>
+                <View style={styles.fileIcon}>
+                  <Ionicons name="document-text-outline" size={22} color={colors.primary} />
+                </View>
+                <View style={styles.imagePreviewMeta}>
+                  <Text style={styles.imageName} numberOfLines={1}>
+                    {newHorse.documentFile.name || 'Giấy chứng nhận'}
+                  </Text>
+                  <Pressable
+                    style={styles.removeImageButton}
+                    onPress={() => onChangeNewHorse((curr) => ({ ...curr, documentFile: null }))}
+                  >
+                    <Text style={styles.removeImageText}>Xóa file</Text>
                   </Pressable>
                 </View>
               </View>
@@ -792,6 +847,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.darkSurfaceSoft,
     padding: 10,
+  },
+  filePreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 12,
+    backgroundColor: colors.darkSurfaceSoft,
+    padding: 10,
+  },
+  fileIcon: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: colors.darkSurface,
   },
   imagePreview: {
     width: 76,

@@ -18,6 +18,8 @@ export function mapHorse(horse) {
     birthDate: horse.birthDate || null,
     ownerName: horse.ownerName || 'Chưa cập nhật',
     imageUrl: horse.imageUrl || '',
+    documentUrl: horse.documentUrl || horse.licenseImageUrl || '',
+    licenseImageUrl: horse.licenseImageUrl || horse.documentUrl || '',
     healthStatus: horse.healthStatus || 'Chưa cập nhật',
     wins: Number(horse.wins || 0),
     races: Number(horse.races || 0),
@@ -52,6 +54,14 @@ function buildHorseFormData(payload) {
     });
   }
 
+  if (payload.documentFile?.uri) {
+    formData.append('document', {
+      uri: payload.documentFile.uri,
+      name: payload.documentFile.name || 'horse-health-document.pdf',
+      type: payload.documentFile.type || 'application/pdf',
+    });
+  }
+
   return formData;
 }
 
@@ -67,7 +77,7 @@ export const horseService = {
   },
 
   async create(payload) {
-    const body = payload.imageFile?.uri
+    const body = payload.imageFile?.uri || payload.documentFile?.uri
       ? buildHorseFormData(payload)
       : {
         name: payload.name,

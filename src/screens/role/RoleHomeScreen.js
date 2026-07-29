@@ -41,6 +41,7 @@ const emptyNewHorse = {
   height: '',
   weight: '',
   imageFile: null,
+  documentFile: null,
   healthStatus: 'Khỏe mạnh',
   racingStatus: 'can-race',
 };
