@@ -583,9 +583,13 @@ function RaceRegistrationModal({
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const TRACK_WIDTH = SCREEN_WIDTH - 80; // padding inside modal
-const HORSE_EMOJIS = ['🐴', '🏇', '🐎', '🦄', '🐴', '🏇'];
 const LANE_COLORS = ['rgba(212,160,23,0.18)', 'rgba(59,130,246,0.12)', 'rgba(16,185,129,0.12)', 'rgba(239,68,68,0.12)', 'rgba(168,85,247,0.12)', 'rgba(249,115,22,0.12)'];
 const LANE_ACCENT = ['#D4A017', '#3B82F6', '#10B981', '#EF4444', '#A855F7', '#F97316'];
+
+function rankLabel(rank) {
+  if (!rank) return '-';
+  return `#${rank}`;
+}
 
 function HorseRaceTrack({ participants, animating, animDone }) {
   const progRefs = useRef(participants.map(() => new Animated.Value(0)));
@@ -628,8 +632,7 @@ function HorseRaceTrack({ participants, animating, animDone }) {
       {participants.map((p, i) => {
         const accent = LANE_ACCENT[i % LANE_ACCENT.length];
         const laneColor = LANE_COLORS[i % LANE_COLORS.length];
-        const emoji = HORSE_EMOJIS[i % HORSE_EMOJIS.length];
-        const isWinner = animDone && p.rank === 1;
+        const isWinner = animDone && Number(p.rank) === 1;
 
         return (
           <View key={p.participantId} style={{ marginBottom: 8 }}>
@@ -643,7 +646,7 @@ function HorseRaceTrack({ participants, animating, animDone }) {
               </Text>
               {animDone && p.rank ? (
                 <Text style={{ color: p.rank === 1 ? colors.primary : colors.darkTextMuted, fontSize: 11, fontWeight: '900' }}>
-                  {p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : `#${p.rank}`}
+                  {rankLabel(p.rank)}
                 </Text>
               ) : null}
             </View>
@@ -681,7 +684,18 @@ function HorseRaceTrack({ participants, animating, animDone }) {
                 }) || 0,
                 alignItems: 'center',
               }}>
-                <Text style={{ fontSize: 22, lineHeight: 28 }}>{emoji}</Text>
+                <View style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: isWinner ? colors.primary : accent,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.18)',
+                }}>
+                  <Ionicons name="flash" size={16} color={isWinner ? '#1D1705' : '#FFFFFF'} />
+                </View>
               </Animated.View>
             </View>
           </View>
@@ -699,9 +713,12 @@ function HorseRaceTrack({ participants, animating, animDone }) {
           borderColor: 'rgba(212,160,23,0.3)',
           alignItems: 'center',
         }}>
-          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '900' }}>
-            🏆 Chiến thắng: {winner.horseName}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="trophy" size={18} color={colors.primary} />
+            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '900' }}>
+              Chiến thắng: {winner.horseName}
+            </Text>
+          </View>
           <Text style={{ color: colors.darkTextMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
             Nài: {winner.jockeyName} · {((winner.finishTimeMillis || 0) / 1000).toFixed(2)}s
           </Text>
@@ -716,6 +733,7 @@ function RefereeRaceModal({
   selectedRefereeRace,
   simulationLoading,
   simulationResult,
+  simulationDraft,
   simulationConfirmed,
   onClose,
   onRunSimulation,
@@ -725,6 +743,7 @@ function RefereeRaceModal({
   const [animating, setAnimating] = useState(false);
   const [animDone, setAnimDone] = useState(false);
   const [showAnimation, setShowAnimation] = useState(false);
+  const [nowMs, setNowMs] = useState(Date.now());
 
   useEffect(() => {
     if (!simulationResult) {
@@ -733,6 +752,13 @@ function RefereeRaceModal({
       setShowAnimation(false);
     }
   }, [simulationResult]);
+
+  useEffect(() => {
+    if (!visible || !simulationResult || simulationConfirmed) return undefined;
+    setNowMs(Date.now());
+    const timer = setInterval(() => setNowMs(Date.now()), 500);
+    return () => clearInterval(timer);
+  }, [visible, simulationResult, simulationConfirmed]);
 
   function startAnimation() {
     setShowAnimation(true);
@@ -748,6 +774,11 @@ function RefereeRaceModal({
   }
 
   const participants = simulationResult?.participants || [];
+  const playbackEndsAtMs = simulationResult?.playbackEndsAt
+    ? new Date(simulationResult.playbackEndsAt).getTime()
+    : 0;
+  const waitSeconds = playbackEndsAtMs ? Math.max(0, Math.ceil((playbackEndsAtMs - nowMs) / 1000)) : 0;
+  const canConfirmSimulation = Boolean(simulationResult && animDone && waitSeconds === 0);
 
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
@@ -772,7 +803,7 @@ function RefereeRaceModal({
                   {showAnimation ? (
                     <View>
                       <Text style={[styles.modalLabel, { marginBottom: 6 }]}>
-                        {animDone ? '🏁 Kết quả mô phỏng:' : '🏇 Đang diễn ra...'}
+                        {animDone ? 'Kết quả mô phỏng:' : 'Đang diễn ra...'}
                       </Text>
                       <HorseRaceTrack
                         participants={participants}
@@ -795,7 +826,7 @@ function RefereeRaceModal({
                         }}
                         onPress={startAnimation}
                       >
-                        <Text style={{ fontSize: 36 }}>🏇</Text>
+                        <Ionicons name="play-circle" size={44} color={colors.primary} />
                         <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '900', marginTop: 6 }}>
                           Xem mô phỏng trực quan
                         </Text>
@@ -814,7 +845,7 @@ function RefereeRaceModal({
                       <View key={p.participantId} style={styles.participantRow}>
                         <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: p.rank === 1 ? 'rgba(212,160,23,0.2)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
                           <Text style={{ fontSize: 12, fontWeight: '900', color: p.rank === 1 ? colors.primary : colors.darkTextMuted }}>
-                            {p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : p.rank}
+                            {rankLabel(p.rank)}
                           </Text>
                         </View>
                         <View style={{ flex: 1 }}>
@@ -833,7 +864,7 @@ function RefereeRaceModal({
                 </ScrollView>
               ) : (
                 <View style={styles.emptySimulation}>
-                  <Text style={{ fontSize: 52 }}>🏟️</Text>
+                  <Ionicons name="analytics-outline" size={52} color={colors.darkTextMuted} />
                   <Text style={[styles.centerText, { marginTop: 8 }]}>Chưa chạy mô phỏng</Text>
                   <Text style={{ color: colors.darkTextMuted, fontSize: 11, fontWeight: '600', marginTop: 4, textAlign: 'center' }}>
                     Nhấn "Chạy mô phỏng" để tính kết quả dự kiến dựa trên lịch sử và hệ số ngẫu nhiên
@@ -847,22 +878,30 @@ function RefereeRaceModal({
                 </Pressable>
                 {!simulationResult && (
                   <Pressable style={styles.primaryAction} onPress={onRunSimulation}>
-                    <Text style={styles.primaryActionText}>🎲 Chạy mô phỏng</Text>
+                    <Text style={styles.primaryActionText}>Chạy mô phỏng</Text>
                   </Pressable>
                 )}
                 {simulationResult && !animDone && !showAnimation && (
                   <Pressable style={styles.primaryAction} onPress={startAnimation}>
-                    <Text style={styles.primaryActionText}>🏇 Chiếu cuộc đua</Text>
+                    <Text style={styles.primaryActionText}>Chiếu cuộc đua</Text>
                   </Pressable>
                 )}
                 {simulationResult && animDone && !simulationConfirmed && (
-                  <Pressable style={styles.primaryAction} onPress={onConfirmSimulation}>
-                    <Text style={styles.primaryActionText}>✓ Xác nhận kết quả</Text>
+                  <Pressable
+                    disabled={!canConfirmSimulation}
+                    style={[styles.primaryAction, !canConfirmSimulation && styles.disabledButton]}
+                    onPress={onConfirmSimulation}
+                  >
+                    <Text style={styles.primaryActionText}>
+                      {waitSeconds > 0 ? `Đợi ${waitSeconds}s` : 'Xác nhận kết quả'}
+                    </Text>
                   </Pressable>
                 )}
                 {simulationConfirmed && (
                   <Pressable style={styles.primaryAction} onPress={onFinalizeResults}>
-                    <Text style={styles.primaryActionText}>🏆 Chốt kết quả</Text>
+                    <Text style={styles.primaryActionText}>
+                      {simulationDraft?.version ? 'Chốt kết quả' : 'Tải bản nháp'}
+                    </Text>
                   </Pressable>
                 )}
               </View>

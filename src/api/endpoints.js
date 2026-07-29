@@ -67,6 +67,7 @@ export const ENDPOINTS = {
     simulation: (raceId) => `/referee/races/${raceId}/simulation`,
     confirmSimulation: (raceId) => `/referee/races/${raceId}/simulation/confirm`,
     finalizeResults: (raceId) => `/referee/races/${raceId}/results/finalize`,
+    resultDraft: (raceId) => `/referee/races/${raceId}/results/draft`,
     violations: '/referee/violations',
     updateViolation: (id) => `/referee/violations/${id}`,
     raceViolations: (raceId) => `/referee/races/${raceId}/violations`,

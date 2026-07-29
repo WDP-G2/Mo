@@ -215,6 +215,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [selectedRefereeRace, setSelectedRefereeRace] = useState(null);
   const [simulationLoading, setSimulationLoading] = useState(false);
   const [simulationResult, setSimulationResult] = useState(null);
+  const [simulationDraft, setSimulationDraft] = useState(null);
   const [simulationConfirmed, setSimulationConfirmed] = useState(false);
 
   // Referee Violation States
@@ -927,6 +928,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   function openRefereeRaceModal(race) {
     setSelectedRefereeRace(race);
     setSimulationResult(null);
+    setSimulationDraft(null);
     setSimulationConfirmed(false);
     setSimulationLoading(false);
     setRefereeRaceModalVisible(true);
@@ -939,6 +941,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       setSimulationLoading(true);
       const res = await refereeService.generateSimulation(selectedRefereeRace.id);
       setSimulationResult(res);
+      setSimulationDraft(null);
       recordActivity('play-circle-outline', 'Đã chạy mô phỏng', selectedRefereeRace.name || 'Race');
       
       // Simulate playback loading
@@ -956,10 +959,14 @@ export default function RoleHomeScreen({ user, onLogout }) {
     if (!selectedRefereeRace || !simulationResult) return;
     try {
       setLoading(true);
-      await refereeService.confirmSimulation(selectedRefereeRace.id, simulationResult.runId);
+      const confirmed = await refereeService.confirmSimulation(selectedRefereeRace.id, simulationResult.runId);
+      if (confirmed?.simulation) {
+        setSimulationResult(confirmed.simulation);
+      }
+      setSimulationDraft(confirmed?.resultDraft || null);
       setSimulationConfirmed(true);
       recordActivity('checkmark-circle-outline', 'Đã xác nhận mô phỏng', selectedRefereeRace.name || 'Race');
-      showAlert('Thành công', 'Đã xác nhận kết quả mô phỏng.');
+      showAlert('Thành công', 'Đã xác nhận kết quả mô phỏng. Bản nháp đã sẵn sàng để chốt.');
     } catch (err) {
       showAlert('Lỗi', err.message || 'Xác nhận thất bại.');
     } finally {
@@ -972,15 +979,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
     if (!selectedRefereeRace || !simulationResult) return;
     try {
       setLoading(true);
-      // Map results for finalization payload
-      const payload = (simulationResult.participants || []).map(p => ({
-        participantId: p.participantId,
-        rank: p.rank,
-        finishTimeMillis: p.finishTimeMillis,
-        status: 'FINISHED'
-      }));
-
-      await refereeService.finalizeResults(selectedRefereeRace.id, payload);
+      const draft = simulationDraft || await refereeService.getResultDraft(selectedRefereeRace.id);
+      if (!draft?.version) {
+        throw new Error('Chưa có bản nháp kết quả. Vui lòng xác nhận mô phỏng trước.');
+      }
+      await refereeService.finalizeResults(selectedRefereeRace.id, { draftVersion: draft.version });
       recordActivity('trophy-outline', 'Đã chốt kết quả race', selectedRefereeRace.name || 'Race');
       showAlert('Thành công', 'Đã chốt kết quả cuộc đua thành công.');
       setRefereeRaceModalVisible(false);
@@ -1278,6 +1281,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
             selectedRefereeRace,
             simulationLoading,
             simulationResult,
+            simulationDraft,
             simulationConfirmed,
             onClose: () => setRefereeRaceModalVisible(false),
             onRunSimulation: runRaceSimulation,

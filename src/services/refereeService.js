@@ -229,11 +229,16 @@ export const refereeService = {
     });
   },
 
-  finalizeResults(raceId, results) {
+  getResultDraft(raceId) {
+    return apiRequest(ENDPOINTS.referee.resultDraft(raceId));
+  },
+
+  finalizeResults(raceId, payload) {
+    const body = Array.isArray(payload) ? { results: payload } : payload;
     return apiRequest(ENDPOINTS.referee.finalizeResults(raceId), {
       method: 'POST',
       headers: { 'Idempotency-Key': `finalize-${raceId}-${Date.now()}` },
-      body: { results },
+      body,
     });
   },
 
