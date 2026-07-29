@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../constants/theme';
+import { ownerService } from '../../../services/ownerService';
 import { userService } from '../../../services/userService';
 import { getRoleLabel } from '../../../utils/role';
 import { displayName, formatDate, initials, matchesQuery } from '../roleData';
@@ -14,6 +15,17 @@ function acceptedInvitation(item) {
 
 function pendingInvitation(item) {
   return item.status === 'Chờ xử lý' || item.status === 'PENDING';
+}
+
+function formatMoney(value) {
+  return `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+}
+
+function formatDateTime(value) {
+  if (!value) return 'Chưa cập nhật';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('vi-VN');
 }
 
 function buildJockeyScheduleItems(data) {
@@ -106,6 +118,8 @@ export function Overview({
   onOpenBetModal,
   onStatPress,
 }) {
+  const [selectedTournament, setSelectedTournament] = useState(null);
+  const [selectedResult, setSelectedResult] = useState(null);
   const title =
     role === 'OWNER'
       ? 'Quản lý ngựa, đăng ký giải và lời mời jockey'
@@ -154,18 +168,49 @@ export function Overview({
         {(role === 'OWNER' ? data.openTournaments : data.news)
           ?.filter((item) => matchesQuery(item, query))
           .slice(0, 3)
-          .map((item) => (
-            <ListItem
-              key={item.id}
-              icon={role === 'OWNER' ? 'trophy-outline' : 'newspaper-outline'}
-              title={item.name || item.title}
-              meta={role === 'OWNER' ? `${item.status} · ${item.openRaceCount || 0} race mở` : item.category}
-            />
-          ))}
+          .map((item) =>
+            role === 'OWNER' ? (
+              <Pressable key={item.id} onPress={() => setSelectedTournament(item)}>
+                <ListItem
+                  icon="trophy-outline"
+                  title={item.name}
+                  meta={`${item.status} · ${item.openRaceCount || 0} race mở`}
+                />
+              </Pressable>
+            ) : (
+              <ListItem
+                key={item.id}
+                icon="newspaper-outline"
+                title={item.title}
+                meta={item.category}
+              />
+            ),
+          )}
         {!(role === 'OWNER' ? data.openTournaments : data.news)?.length ? (
           <EmptyText text="Chưa có dữ liệu." />
         ) : null}
       </Section>
+
+      {role === 'OWNER' ? (
+        <Section title="Kết quả gần đây">
+          {(data.results?.results || [])
+            .filter((item) => matchesQuery(item, query))
+            .slice(0, 4)
+            .map((item) => (
+              <Pressable key={item.id} onPress={() => setSelectedResult(item)}>
+                <ListItem
+                  icon={Number(item.position) === 1 ? 'trophy-outline' : 'ribbon-outline'}
+                  title={`${item.horseName || 'Ngựa'} · Hạng ${item.position || '-'}`}
+                  meta={`${item.tournamentName || 'Giải đấu'} · ${item.raceName || 'Race'}`}
+                  badge={formatMoney(item.prizeAmount)}
+                />
+              </Pressable>
+            ))}
+          {!data.results?.results?.length ? (
+            <EmptyText text="Chưa có kết quả thi đấu đã xác nhận." />
+          ) : null}
+        </Section>
+      ) : null}
 
       {role === 'REFEREE' ? (
         <Section title="Race sắp tới">
@@ -239,6 +284,17 @@ export function Overview({
           {!data.horses?.length ? <EmptyText text="Chưa có dữ liệu ngựa." /> : null}
         </Section>
       ) : null}
+
+      <OwnerDetailModal
+        item={selectedTournament}
+        type="tournament"
+        onClose={() => setSelectedTournament(null)}
+      />
+      <OwnerDetailModal
+        item={selectedResult}
+        type="result"
+        onClose={() => setSelectedResult(null)}
+      />
     </View>
   );
 }
@@ -264,12 +320,14 @@ export function Schedule({
       <Section title="Đăng ký của chủ ngựa">
         {(data.registrations || []).filter((item) => matchesQuery(item, query)).map((item) => (
           <View key={item.id} style={styles.invitationItem}>
-            <ListItem
-              icon="reader-outline"
-              title={item.tournamentName || item.raceName || 'Đăng ký'}
-              meta={`${item.horseName || 'Chưa chọn ngựa'} · ${item.status}`}
-              badge={item.jockeyName || 'Chưa có jockey'}
-            />
+            <Pressable onPress={() => setSelectedScheduleItem(item)}>
+              <ListItem
+                icon="reader-outline"
+                title={item.tournamentName || item.raceName || 'Đăng ký'}
+                meta={`${item.horseName || 'Chưa chọn ngựa'} · ${item.status}`}
+                badge={item.jockeyName || 'Chưa có jockey'}
+              />
+            </Pressable>
             {item.canWithdraw ? (
               <View style={styles.invitationActions}>
                 <Pressable
@@ -283,6 +341,11 @@ export function Schedule({
           </View>
         ))}
         {!data.registrations?.length ? <EmptyText text="Chưa có đăng ký nào." /> : null}
+        <OwnerDetailModal
+          item={selectedScheduleItem}
+          type="registration"
+          onClose={() => setSelectedScheduleItem(null)}
+        />
       </Section>
     );
   }
@@ -413,6 +476,7 @@ function horseApprovalLabel(horse) {
 
 export function Horses({ data, query, onOpenHorseModal, onEditHorse, onDeleteHorse }) {
   const [approvalFilter, setApprovalFilter] = useState('ALL');
+  const [selectedHorse, setSelectedHorse] = useState(null);
   const horses = (data.horses || [])
     .filter((item) => matchesQuery(item, query))
     .filter((item) => {
@@ -452,25 +516,27 @@ export function Horses({ data, query, onOpenHorseModal, onEditHorse, onDeleteHor
       <Section title={`${horses.length} ngựa đang quản lý`}>
         {horses.map((horse) => (
           <View key={horse.id} style={styles.horseRow}>
-            <View style={styles.horseAvatar}>
+            <Pressable style={styles.horseAvatar} onPress={() => setSelectedHorse(horse)}>
               {horse.imageUrl ? (
                 <Image source={{ uri: horse.imageUrl }} style={styles.horseAvatarImage} />
               ) : (
                 <Ionicons name="footsteps-outline" size={22} color={colors.primary} />
               )}
-            </View>
+            </Pressable>
 
             <View style={styles.horseInfo}>
-              <Text style={styles.horseName} numberOfLines={1}>
-                {horse.name || 'Ngựa chưa đặt tên'}
-              </Text>
-              <Text style={styles.horseMeta} numberOfLines={1}>
-                {[
-                  horse.breed || 'Chưa cập nhật giống',
-                  horse.age ? `${horse.age} tuổi` : '',
-                  horse.color || '',
-                ].filter(Boolean).join(' · ')}
-              </Text>
+              <Pressable onPress={() => setSelectedHorse(horse)}>
+                <Text style={styles.horseName} numberOfLines={1}>
+                  {horse.name || 'Ngựa chưa đặt tên'}
+                </Text>
+                <Text style={styles.horseMeta} numberOfLines={1}>
+                  {[
+                    horse.breed || 'Chưa cập nhật giống',
+                    horse.age ? `${horse.age} tuổi` : '',
+                    horse.color || '',
+                  ].filter(Boolean).join(' · ')}
+                </Text>
+              </Pressable>
               <View style={styles.horseActions}>
                 <Pressable style={styles.horseActionButton} onPress={() => onEditHorse(horse)}>
                   <Ionicons name="create-outline" size={13} color={colors.darkText} />
@@ -492,6 +558,7 @@ export function Horses({ data, query, onOpenHorseModal, onEditHorse, onDeleteHor
         ))}
         {!horses.length ? <EmptyText text="Chưa có ngựa hoặc không khớp tìm kiếm." /> : null}
       </Section>
+      <OwnerDetailModal item={selectedHorse} type="horse" onClose={() => setSelectedHorse(null)} />
     </View>
   );
 }
@@ -519,12 +586,14 @@ export function Tasks({
       <Section title="Lời mời jockey đã gửi">
         {(data.invitations || []).filter((item) => matchesQuery(item, query)).map((item) => (
           <View key={item.id} style={styles.invitationItem}>
-            <ListItem
-              icon="mail-outline"
-              title={item.jockeyName || 'Jockey'}
-              meta={`${item.horseName || 'Ngựa'} · ${item.tournamentName || item.raceLabel || 'Giải đấu'}`}
-              badge={item.status}
-            />
+            <Pressable onPress={() => setSelectedInvitation(item)}>
+              <ListItem
+                icon="mail-outline"
+                title={item.jockeyName || 'Jockey'}
+                meta={`${item.horseName || 'Ngựa'} · ${item.tournamentName || item.raceLabel || 'Giải đấu'}`}
+                badge={item.status}
+              />
+            </Pressable>
             {item.responseNote ? (
               <Text style={styles.responseNoteText}>Lý do/ghi chú: {item.responseNote}</Text>
             ) : null}
@@ -541,6 +610,11 @@ export function Tasks({
           </View>
         ))}
         {!data.invitations?.length ? <EmptyText text="Chưa gửi lời mời jockey." /> : null}
+        <OwnerDetailModal
+          item={selectedInvitation}
+          type="invitation"
+          onClose={() => setSelectedInvitation(null)}
+        />
       </Section>
     );
   }
@@ -1249,26 +1323,201 @@ function DetailRow({ icon, label, value }) {
   );
 }
 
-export function Account({ user, role, onLogout, onRecordActivity }) {
+function OwnerDetailModal({ item, type, onClose }) {
+  if (!item) return null;
+
+  const titles = {
+    tournament: item.name || 'Chi tiết giải đấu',
+    result: item.horseName || 'Chi tiết kết quả',
+    horse: item.name || 'Chi tiết ngựa',
+    registration: item.tournamentName || item.raceName || 'Chi tiết đăng ký',
+    invitation: item.jockeyName || 'Chi tiết lời mời',
+  };
+
+  return (
+    <Modal visible={Boolean(item)} transparent={true} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.detailBackdrop}>
+        <View style={styles.detailModal}>
+          <View style={styles.detailHeader}>
+            <View style={styles.detailTitleBlock}>
+              <Text style={styles.detailEyebrow}>HORSE OWNER</Text>
+              <Text style={styles.detailTitle} numberOfLines={2}>{titles[type]}</Text>
+            </View>
+            <Pressable style={styles.detailClose} onPress={onClose}>
+              <Ionicons name="close" size={20} color={colors.darkText} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            style={styles.detailScroll}
+            contentContainerStyle={styles.detailContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {type === 'tournament' ? (
+              <>
+                {item.banner ? <Image source={{ uri: item.banner }} style={styles.ownerDetailImage} /> : null}
+                <DetailRow icon="information-circle-outline" label="Trạng thái" value={item.status || 'Chưa cập nhật'} />
+                <DetailRow icon="location-outline" label="Địa điểm" value={item.location || 'Chưa cập nhật'} />
+                <DetailRow icon="calendar-outline" label="Ngày bắt đầu" value={formatDate(item.startDate)} />
+                <DetailRow icon="cash-outline" label="Giải thưởng" value={String(item.prize || 'Chưa cập nhật')} />
+                <DetailRow icon="flag-outline" label="Số cuộc đua" value={String(item.raceCount || item.races?.length || 0)} />
+                {(item.races || []).length ? (
+                  <View style={styles.ownerDetailSubsection}>
+                    <Text style={styles.detailSectionTitle}>Các cuộc đua</Text>
+                    {(item.races || []).map((race) => (
+                      <ListItem
+                        key={race.id}
+                        icon="flag-outline"
+                        title={`Race R${race.raceNumber || '-'} · ${race.name}`}
+                        meta={`${formatDateTime(race.scheduledStartAt)} · Phí ${formatMoney(race.entryFee)}`}
+                        badge={race.status}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+              </>
+            ) : null}
+
+            {type === 'result' ? (
+              <>
+                <DetailRow icon="trophy-outline" label="Thứ hạng" value={`Hạng ${item.position || '-'}`} />
+                <DetailRow icon="footsteps-outline" label="Ngựa" value={item.horseName || 'Chưa cập nhật'} />
+                <DetailRow icon="person-outline" label="Jockey" value={item.jockeyName || 'Chưa cập nhật'} />
+                <DetailRow icon="ribbon-outline" label="Giải đấu" value={item.tournamentName || 'Chưa cập nhật'} />
+                <DetailRow icon="flag-outline" label="Cuộc đua" value={item.raceName || 'Chưa cập nhật'} />
+                <DetailRow icon="cash-outline" label="Tiền thưởng" value={formatMoney(item.prizeAmount)} />
+                <DetailRow icon="timer-outline" label="Thành tích" value={item.finishTimeMillis ? `${item.finishTimeMillis} ms` : 'Chưa cập nhật'} />
+                <DetailRow icon="calendar-outline" label="Ngày xác nhận" value={formatDateTime(item.date)} />
+              </>
+            ) : null}
+
+            {type === 'horse' ? (
+              <>
+                {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.ownerDetailImage} /> : null}
+                <DetailRow icon="footsteps-outline" label="Tên ngựa" value={item.name || 'Chưa cập nhật'} />
+                <DetailRow icon="git-branch-outline" label="Giống" value={item.breed || 'Chưa cập nhật'} />
+                <DetailRow icon="calendar-outline" label="Tuổi" value={item.age ? `${item.age} tuổi` : 'Chưa cập nhật'} />
+                <DetailRow icon="male-female-outline" label="Giới tính" value={item.gender || 'Chưa cập nhật'} />
+                <DetailRow icon="color-palette-outline" label="Màu lông" value={item.color || 'Chưa cập nhật'} />
+                <DetailRow icon="resize-outline" label="Chiều cao / cân nặng" value={`${item.height || item.heightCm || 0} cm · ${item.weight || item.weightKg || 0} kg`} />
+                <DetailRow icon="medkit-outline" label="Sức khỏe" value={item.healthStatus || 'Chưa cập nhật'} />
+                <DetailRow icon="shield-checkmark-outline" label="Duyệt hồ sơ" value={horseApprovalLabel(item)} />
+                {item.documentUrl ? (
+                  <Pressable style={styles.secondaryAction} onPress={() => Linking.openURL(item.documentUrl)}>
+                    <Text style={styles.secondaryActionText}>Mở giấy sức khỏe / chứng nhận</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : null}
+
+            {type === 'registration' ? (
+              <>
+                <DetailRow icon="information-circle-outline" label="Trạng thái" value={item.status || 'Chưa cập nhật'} />
+                <DetailRow icon="trophy-outline" label="Giải đấu" value={item.tournamentName || 'Chưa cập nhật'} />
+                <DetailRow icon="flag-outline" label="Cuộc đua" value={item.raceName || 'Chưa cập nhật'} />
+                <DetailRow icon="calendar-outline" label="Lịch thi đấu" value={formatDateTime(item.raceScheduledAt)} />
+                <DetailRow icon="footsteps-outline" label="Ngựa" value={item.horseName || 'Chưa cập nhật'} />
+                <DetailRow icon="person-outline" label="Jockey" value={item.jockeyName || 'Chưa cập nhật'} />
+                <DetailRow icon="cash-outline" label="Phí đăng ký" value={formatMoney(item.entryFeeAmount)} />
+                <DetailRow icon="wallet-outline" label="Tiền cọc" value={formatMoney(item.depositAmount)} />
+                <DetailRow icon="checkmark-done-outline" label="Check-in" value={item.checkInStatus || 'PENDING'} />
+                {item.ownerNote ? <DetailRow icon="chatbubble-outline" label="Ghi chú của bạn" value={item.ownerNote} /> : null}
+                {item.reviewNote ? <DetailRow icon="document-text-outline" label="Phản hồi duyệt" value={item.reviewNote} /> : null}
+                {item.withdrawNote ? <DetailRow icon="return-down-back-outline" label="Lý do rút" value={item.withdrawNote} /> : null}
+              </>
+            ) : null}
+
+            {type === 'invitation' ? (
+              <>
+                <DetailRow icon="information-circle-outline" label="Trạng thái" value={item.status || 'Chưa cập nhật'} />
+                <DetailRow icon="person-outline" label="Jockey" value={item.jockeyName || 'Chưa cập nhật'} />
+                <DetailRow icon="footsteps-outline" label="Ngựa" value={item.horseName || 'Chưa cập nhật'} />
+                <DetailRow icon="trophy-outline" label="Giải đấu" value={item.tournamentName || 'Chưa cập nhật'} />
+                <DetailRow icon="flag-outline" label="Cuộc đua" value={item.raceLabel || 'Chưa cập nhật'} />
+                <DetailRow icon="calendar-outline" label="Ngày giờ" value={formatDateTime(item.raceScheduledStartAt || item.raceDate)} />
+                <DetailRow icon="location-outline" label="Địa điểm" value={item.location || 'Chưa cập nhật'} />
+                <DetailRow icon="cash-outline" label="Thù lao" value={formatMoney(item.reward)} />
+                {item.message ? <DetailRow icon="chatbubble-outline" label="Lời nhắn" value={item.message} /> : null}
+                {item.responseNote ? <DetailRow icon="document-text-outline" label="Phản hồi jockey" value={item.responseNote} /> : null}
+              </>
+            ) : null}
+
+            <Pressable style={styles.primaryAction} onPress={onClose}>
+              <Text style={styles.primaryActionText}>Đóng</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+export function Account({ user, role, data, onLogout, onRecordActivity, onProfileUpdated }) {
+  const ownerProfile = data?.profile || {};
   const [form, setForm] = useState({
     fullName: displayName(user),
     phone: user?.phone || '',
     location: user?.location || '',
+    stableName: '',
+    address: '',
+    experienceYears: '',
+    bio: '',
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const name = form.fullName || displayName(user);
+  const name = ownerProfile.fullName || form.fullName || displayName(user);
+
+  useEffect(() => {
+    setForm({
+      fullName: ownerProfile.fullName || displayName(user),
+      phone: ownerProfile.phone || user?.phone || '',
+      location: user?.location || '',
+      stableName: ownerProfile.stableName || '',
+      address: ownerProfile.address || '',
+      experienceYears:
+        ownerProfile.experienceYears === undefined || ownerProfile.experienceYears === null
+          ? ''
+          : String(ownerProfile.experienceYears),
+      bio: ownerProfile.bio || '',
+    });
+  }, [
+    ownerProfile.address,
+    ownerProfile.bio,
+    ownerProfile.experienceYears,
+    ownerProfile.fullName,
+    ownerProfile.phone,
+    ownerProfile.stableName,
+    user,
+  ]);
 
   async function saveProfile() {
     try {
       setSaving(true);
       setMessage('');
-      const updated = await userService.updateProfile(form);
-      setForm({
-        fullName: updated?.fullName || updated?.name || form.fullName,
-        phone: updated?.phone || '',
-        location: updated?.location || '',
-      });
+      const updated =
+        role === 'OWNER'
+          ? await ownerService.updateProfile({
+              stableName: form.stableName.trim(),
+              address: form.address.trim(),
+              experienceYears: form.experienceYears.trim(),
+              bio: form.bio.trim(),
+              phone: form.phone.trim(),
+            })
+          : await userService.updateProfile(form);
+      setForm((current) => ({
+        ...current,
+        fullName: updated?.fullName || updated?.name || current.fullName,
+        phone: updated?.phone ?? current.phone,
+        location: updated?.location ?? current.location,
+        stableName: updated?.stableName ?? current.stableName,
+        address: updated?.address ?? current.address,
+        experienceYears:
+          updated?.experienceYears === undefined
+            ? current.experienceYears
+            : String(updated.experienceYears),
+        bio: updated?.bio ?? current.bio,
+      }));
+      onProfileUpdated?.(updated);
       setMessage('Đã cập nhật hồ sơ.');
       if (onRecordActivity) {
         onRecordActivity(
@@ -1296,26 +1545,63 @@ export function Account({ user, role, onLogout, onRecordActivity }) {
       </View>
 
       <Section title="Cập nhật hồ sơ">
-        <ProfileField
-          label="Họ và tên"
-          value={form.fullName}
-          onChangeText={(value) => setForm((current) => ({ ...current, fullName: value }))}
-        />
+        {role !== 'OWNER' ? (
+          <ProfileField
+            label="Họ và tên"
+            value={form.fullName}
+            onChangeText={(value) => setForm((current) => ({ ...current, fullName: value }))}
+          />
+        ) : null}
         <ProfileField
           label="Số điện thoại"
           keyboardType="phone-pad"
           value={form.phone}
           onChangeText={(value) => setForm((current) => ({ ...current, phone: value }))}
         />
-        <ProfileField
-          label="Địa điểm"
-          value={form.location}
-          onChangeText={(value) => setForm((current) => ({ ...current, location: value }))}
-        />
+        {role === 'OWNER' ? (
+          <>
+            <ProfileField
+              label="Tên chuồng ngựa"
+              value={form.stableName}
+              onChangeText={(value) => setForm((current) => ({ ...current, stableName: value }))}
+            />
+            <ProfileField
+              label="Địa chỉ chuồng"
+              value={form.address}
+              onChangeText={(value) => setForm((current) => ({ ...current, address: value }))}
+            />
+            <ProfileField
+              label="Số năm kinh nghiệm"
+              keyboardType="numeric"
+              value={form.experienceYears}
+              onChangeText={(value) =>
+                setForm((current) => ({
+                  ...current,
+                  experienceYears: value.replace(/[^0-9]/g, ''),
+                }))
+              }
+            />
+            <ProfileField
+              label="Giới thiệu"
+              multiline={true}
+              value={form.bio}
+              onChangeText={(value) => setForm((current) => ({ ...current, bio: value }))}
+            />
+          </>
+        ) : (
+          <ProfileField
+            label="Địa điểm"
+            value={form.location}
+            onChangeText={(value) => setForm((current) => ({ ...current, location: value }))}
+          />
+        )}
         {message ? <Text style={styles.profileMessage}>{message}</Text> : null}
         <Pressable
-          disabled={saving || !form.fullName.trim()}
-          style={[styles.saveProfileButton, (saving || !form.fullName.trim()) && styles.disabledButton]}
+          disabled={saving || (role !== 'OWNER' && !form.fullName.trim())}
+          style={[
+            styles.saveProfileButton,
+            (saving || (role !== 'OWNER' && !form.fullName.trim())) && styles.disabledButton,
+          ]}
           onPress={saveProfile}
         >
           <Text style={styles.saveProfileText}>{saving ? 'Đang lưu...' : 'Lưu hồ sơ'}</Text>
@@ -1405,6 +1691,16 @@ const styles = StyleSheet.create({
   },
   detailContent: {
     paddingBottom: 4,
+  },
+  ownerDetailImage: {
+    width: '100%',
+    height: 180,
+    marginBottom: 12,
+    borderRadius: 12,
+    resizeMode: 'cover',
+  },
+  ownerDetailSubsection: {
+    marginTop: 14,
   },
   detailRow: {
     flexDirection: 'row',

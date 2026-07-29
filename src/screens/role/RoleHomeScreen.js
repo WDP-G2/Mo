@@ -1308,8 +1308,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
               <Account
                 user={user}
                 role={role}
+                data={data}
                 onLogout={onLogout}
                 onRecordActivity={recordActivity}
+                onProfileUpdated={(profile) =>
+                  setData((current) => ({ ...current, profile: { ...current.profile, ...profile } }))
+                }
               />
             ) : null}
           </ScrollView>

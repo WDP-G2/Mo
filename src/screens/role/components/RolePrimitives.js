@@ -3,15 +3,22 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../constants/theme';
 
-export function ProfileField({ label, value, onChangeText, keyboardType = 'default' }) {
+export function ProfileField({
+  label,
+  value,
+  onChangeText,
+  keyboardType = 'default',
+  multiline = false,
+}) {
   return (
     <View style={styles.profileField}>
       <Text style={styles.profileLabel}>{label}</Text>
       <TextInput
         keyboardType={keyboardType}
+        multiline={multiline}
         onChangeText={onChangeText}
         placeholderTextColor={colors.darkTextMuted}
-        style={styles.profileInput}
+        style={[styles.profileInput, multiline && styles.profileInputMultiline]}
         value={value}
       />
     </View>
@@ -223,5 +230,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     paddingHorizontal: 12,
+  },
+  profileInputMultiline: {
+    minHeight: 96,
+    textAlignVertical: 'top',
   },
 });
