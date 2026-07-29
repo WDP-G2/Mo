@@ -70,6 +70,18 @@ function expectObject(value, label) {
   }
 }
 
+function expectOpenTournamentShape(value, label) {
+  expectArray(value, label);
+  if (!value.length) return;
+  const first = value[0];
+  if (!first.id && !first._id) throw new Error(`${label} first tournament is missing id`);
+  if (!Array.isArray(first.races)) throw new Error(`${label} first tournament races should be an array`);
+  if (!first.races.length) throw new Error(`${label} first tournament should include races`);
+  const race = first.races[0];
+  if (!race.id && !race._id && !race.raceId) throw new Error(`${label} first race is missing id`);
+  if (!race.status && !race.statusCode) throw new Error(`${label} first race is missing status`);
+}
+
 async function login(email) {
   const auth = await request('POST', 'auth/login', {
     body: { email, password: TEST_PASSWORD },
@@ -102,7 +114,7 @@ async function run() {
     expectArray(await request('GET', 'owner/horses', { token: tokens.owner }), 'owner horses');
     expectArray(await request('GET', 'owner/race-registrations', { token: tokens.owner }), 'owner race registrations');
     expectArray(await request('GET', 'owner/jockey-invitations', { token: tokens.owner }), 'owner jockey invitations');
-    expectArray(await request('GET', 'tournaments/owner/open', { token: tokens.owner }), 'owner open tournaments');
+    expectOpenTournamentShape(await request('GET', 'tournaments/owner/open', { token: tokens.owner }), 'owner open tournaments');
     expectObject(await request('GET', 'notifications?size=5', { token: tokens.owner }), 'owner notifications');
     expectObject(await request('GET', 'notifications/unread-count', { token: tokens.owner }), 'owner unread notifications');
   });

@@ -559,7 +559,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       setAllJockeys(availableJockeys);
 
       // Extract all open races across open tournaments
-      const tournaments = await tournamentService.list();
+      const tournaments = await tournamentService.listOwnerOpen();
       const openRaces = [];
       (tournaments || []).forEach(t => {
         (t.races || []).forEach(r => {
@@ -637,7 +637,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
     try {
       setLoading(true);
       const [tournaments, horses, invitations] = await Promise.all([
-        tournamentService.list(),
+        tournamentService.listOwnerOpen(),
         ownerService.listHorses(),
         ownerService.listJockeyInvitations(),
       ]);

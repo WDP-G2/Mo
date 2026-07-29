@@ -4,6 +4,24 @@ import { ENDPOINTS } from '../api/endpoints';
 const FALLBACK_BANNER =
   'https://images.unsplash.com/photo-1507514604110-ba3347c457f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1600';
 
+const TOURNAMENT_STATUS_LABELS = {
+  DRAFT: 'Nháp',
+  PUBLISHED: 'Đã công bố',
+  OPEN_REGISTRATION: 'Đang mở đăng ký',
+  REGISTRATION_CLOSED: 'Đã đóng đăng ký',
+  SCHEDULED: 'Đã lên lịch',
+  ONGOING: 'Đang diễn ra',
+  RESULT_CONFIRMED: 'Đã có kết quả',
+  COMPLETED: 'Đã kết thúc',
+  CANCELLED: 'Đã hủy',
+};
+
+const RACE_STATUS_LABELS = {
+  ...TOURNAMENT_STATUS_LABELS,
+  SCHEDULED: 'Sắp diễn ra',
+  RESULT_CONFIRMED: 'Đã kết thúc',
+};
+
 const REGISTRATION_STATUS_LABELS = {
   PENDING: 'Chờ duyệt',
   APPROVED: 'Đã duyệt',
@@ -30,6 +48,21 @@ function normalizeRegistrationStatus(status) {
   const value = String(status).trim();
   if (REGISTRATION_STATUS_LABELS[value]) return value;
   return STATUS_LABEL_TO_CODE[value] || value.toUpperCase();
+}
+
+function normalizeStatusCode(status) {
+  if (!status) return '';
+  return String(status).trim().toUpperCase();
+}
+
+function tournamentStatusLabel(status) {
+  const code = normalizeStatusCode(status);
+  return TOURNAMENT_STATUS_LABELS[code] || status || 'Nháp';
+}
+
+function raceStatusLabel(status) {
+  const code = normalizeStatusCode(status);
+  return RACE_STATUS_LABELS[code] || status || 'Chưa cập nhật';
 }
 
 function toDateLabel(value) {
@@ -80,13 +113,14 @@ function mapRegistration(item) {
 
 function mapRace(race) {
   if (!race) return null;
+  const statusCode = normalizeStatusCode(race.statusCode || race.status);
 
   return {
     id: String(race.id || race._id || race.raceId || ''),
     raceNumber: race.raceNumber || '',
     name: race.name || race.raceName || 'Race',
-    status: race.statusLabel || race.status || race.statusCode || 'Chưa cập nhật',
-    statusCode: race.statusCode || race.status || '',
+    status: race.statusLabel || raceStatusLabel(statusCode || race.status),
+    statusCode,
     scheduledStartAt: race.scheduledStartAt || race.scheduledAt || race.startAt || '',
     entryFee: Number(race.entryFee || 0),
     minHorses: Number(race.minHorses || race.minParticipants || 0),
@@ -96,6 +130,7 @@ function mapRace(race) {
 
 export function mapTournament(tournament) {
   if (!tournament) return null;
+  const statusCode = normalizeStatusCode(tournament.statusCode || tournament.status);
   const races = Array.isArray(tournament.races) ? tournament.races : [];
   const registrations = Array.isArray(tournament.registrations)
     ? tournament.registrations
@@ -104,8 +139,8 @@ export function mapTournament(tournament) {
   return {
     id: String(tournament.id || tournament._id),
     name: tournament.name || '',
-    status: tournament.status || 'Nháp',
-    statusCode: tournament.statusCode || tournament.status || '',
+    status: tournamentStatusLabel(statusCode || tournament.status),
+    statusCode,
     location: tournament.location || 'Chưa cập nhật',
     banner: tournament.banner || FALLBACK_BANNER,
     startDate: tournament.startDate,
