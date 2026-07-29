@@ -47,6 +47,7 @@ export default function App() {
         {authScreen === 'login' && (
           <LoginScreen
             onLogin={handleAuthenticated}
+            onNavigateHome={() => setAuthScreen('home')}
             onNavigateRegister={() => setAuthScreen('register')}
           />
         )}

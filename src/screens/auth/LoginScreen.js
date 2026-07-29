@@ -24,7 +24,7 @@ import { colors, spacing } from '../../constants/theme';
 import { authService } from '../../services/authService';
 import { isAdminRole, isMobileRole } from '../../utils/role';
 
-export default function LoginScreen({ onLogin, onNavigateRegister }) {
+export default function LoginScreen({ onLogin, onNavigateHome, onNavigateRegister }) {
   const showAlert = useAppAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -80,6 +80,11 @@ export default function LoginScreen({ onLogin, onNavigateRegister }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <Pressable style={styles.backButton} onPress={onNavigateHome}>
+            <Ionicons name="chevron-back" size={21} color={colors.text} />
+            <Text style={styles.backText}>Trang chủ</Text>
+          </Pressable>
+
           <View style={styles.card}>
             <LoginLogo />
 
@@ -166,6 +171,24 @@ const styles = StyleSheet.create({
   },
   card: {
     alignItems: 'stretch',
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 42,
+    borderWidth: 1,
+    borderColor: '#D9E3F0',
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  backText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
   },
   title: {
     marginTop: 10,
