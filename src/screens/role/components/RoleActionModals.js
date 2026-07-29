@@ -167,6 +167,9 @@ function DepositModal({ visible, depositAmount, cardInfo, onChangeDepositAmount,
 }
 
 function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) {
+  const editing = Boolean(newHorse.id);
+  const previewUri = newHorse.imageFile?.uri || newHorse.imageUrl;
+
   async function pickHorseImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
@@ -223,7 +226,7 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Thêm ngựa thi đấu mới</Text>
+          <Text style={styles.modalTitle}>{editing ? 'Sửa thông tin ngựa' : 'Thêm ngựa thi đấu mới'}</Text>
 
           <ScrollView>
             <Text style={styles.modalLabel}>Tên ngựa:</Text>
@@ -239,19 +242,19 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
             <Pressable style={styles.imagePickerButton} onPress={pickHorseImage}>
               <Ionicons name="image-outline" size={18} color={colors.primary} />
               <Text style={styles.imagePickerText}>
-                {newHorse.imageFile?.uri ? 'Đổi ảnh ngựa' : 'Chọn ảnh ngựa'}
+                {previewUri ? 'Đổi ảnh ngựa' : 'Chọn ảnh ngựa'}
               </Text>
             </Pressable>
-            {newHorse.imageFile?.uri ? (
+            {previewUri ? (
               <View style={styles.imagePreviewRow}>
-                <Image source={{ uri: newHorse.imageFile.uri }} style={styles.imagePreview} />
+                <Image source={{ uri: previewUri }} style={styles.imagePreview} />
                 <View style={styles.imagePreviewMeta}>
                   <Text style={styles.imageName} numberOfLines={1}>
-                    {newHorse.imageFile.name || 'Ảnh ngựa'}
+                    {newHorse.imageFile?.name || 'Ảnh ngựa hiện tại'}
                   </Text>
                   <Pressable
                     style={styles.removeImageButton}
-                    onPress={() => onChangeNewHorse((curr) => ({ ...curr, imageFile: null }))}
+                    onPress={() => onChangeNewHorse((curr) => ({ ...curr, imageFile: null, imageUrl: '' }))}
                   >
                     <Text style={styles.removeImageText}>Xóa ảnh</Text>
                   </Pressable>
@@ -359,7 +362,12 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
               </View>
             </View>
 
-            <ModalButtons cancelText="Hủy" confirmText="Thêm ngựa" onCancel={onClose} onConfirm={onSubmit} />
+            <ModalButtons
+              cancelText="Hủy"
+              confirmText={editing ? 'Lưu thay đổi' : 'Thêm ngựa'}
+              onCancel={onClose}
+              onConfirm={onSubmit}
+            />
           </ScrollView>
         </View>
       </View>

@@ -3,6 +3,7 @@ import { ENDPOINTS } from '../api/endpoints';
 
 export function mapHorse(horse) {
   if (!horse) return null;
+  const approvalStatus = horse.approvalStatus || horse.statusCode || horse.status || 'APPROVED';
 
   return {
     id: String(horse.id || horse._id),
@@ -21,6 +22,9 @@ export function mapHorse(horse) {
     documentUrl: horse.documentUrl || horse.licenseImageUrl || '',
     licenseImageUrl: horse.licenseImageUrl || horse.documentUrl || '',
     healthStatus: horse.healthStatus || 'Chưa cập nhật',
+    approvalStatus,
+    statusCode: approvalStatus,
+    approvalLabel: approvalStatus === 'APPROVED' ? 'Duyệt' : 'Chưa duyệt',
     wins: Number(horse.wins || 0),
     races: Number(horse.races || 0),
     canRace: horse.canRace !== false,
@@ -119,5 +123,34 @@ export const horseService = {
       body,
     });
     return mapHorse(horse);
+  },
+
+  async update(id, payload) {
+    const hasFiles = payload.imageFile?.uri || payload.documentFile?.uri;
+    const body = hasFiles
+      ? buildHorseFormData(payload)
+      : {
+        name: payload.name,
+        breed: payload.breed,
+        age: Number(payload.age),
+        gender: payload.gender || '',
+        color: payload.color || '',
+        heightCm: payload.heightCm !== undefined ? Number(payload.heightCm) : Number(payload.height || 0),
+        weightKg: payload.weightKg !== undefined ? Number(payload.weightKg) : Number(payload.weight || 0),
+        healthStatus: payload.healthStatus || 'Khỏe mạnh',
+        racingStatus: payload.racingStatus || 'can-race',
+      };
+
+    const horse = await apiRequest(ENDPOINTS.owner.updateHorse(id), {
+      method: 'PUT',
+      body,
+    });
+    return mapHorse(horse);
+  },
+
+  async remove(id) {
+    return apiRequest(ENDPOINTS.owner.deleteHorse(id), {
+      method: 'DELETE',
+    });
   },
 };

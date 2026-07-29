@@ -51,9 +51,30 @@ const emptyNewHorse = {
   weight: '',
   imageFile: null,
   documentFile: null,
+  imageUrl: '',
+  documentUrl: '',
   healthStatus: 'Khỏe mạnh',
   racingStatus: 'can-race',
 };
+
+function horseToForm(horse) {
+  return {
+    id: horse.id,
+    name: horse.name || '',
+    breed: horse.breed || '',
+    age: horse.age ? String(horse.age) : '',
+    gender: horse.gender || '',
+    color: horse.color || '',
+    height: horse.height ? String(horse.height) : '',
+    weight: horse.weight ? String(horse.weight) : '',
+    imageFile: null,
+    documentFile: null,
+    imageUrl: horse.imageUrl || '',
+    documentUrl: horse.documentUrl || horse.licenseImageUrl || '',
+    healthStatus: horse.healthStatus || 'Khỏe mạnh',
+    racingStatus: horse.racingStatus || 'can-race',
+  };
+}
 
 export default function RoleHomeScreen({ user, onLogout }) {
   const showAlert = useAppAlert();
@@ -135,6 +156,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
     return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
+
+  useEffect(() => {
+    if (!visibleTabs.some((tab) => tab.key === activeTab)) {
+      setActiveTab('overview');
+    }
+  }, [activeTab, visibleTabs]);
 
   const stats = useMemo(() => buildStats(role, data), [data, role]);
 
@@ -301,16 +328,50 @@ export default function RoleHomeScreen({ user, onLogout }) {
 
     try {
       setLoading(true);
-      await horseService.create(newHorse);
-      showAlert('Thành công', `Đã thêm ngựa ${newHorse.name} thành công.`);
+      if (newHorse.id) {
+        await horseService.update(newHorse.id, newHorse);
+        showAlert('Thành công', `Đã cập nhật ngựa ${newHorse.name} thành công.`);
+      } else {
+        await horseService.create(newHorse);
+        showAlert('Thành công', `Đã thêm ngựa ${newHorse.name} thành công.`);
+      }
       setHorseModalVisible(false);
       setNewHorse(emptyNewHorse);
       refreshData();
     } catch (err) {
-      showAlert('Lỗi', err.message || 'Không thêm được ngựa.');
+      showAlert('Lỗi', err.message || 'Không lưu được ngựa.');
     } finally {
       setLoading(false);
     }
+  }
+
+  function openEditHorse(horse) {
+    setNewHorse(horseToForm(horse));
+    setHorseModalVisible(true);
+  }
+
+  async function confirmDeleteHorse(horse) {
+    try {
+      setLoading(true);
+      await horseService.remove(horse.id);
+      showAlert('Thành công', `Đã xóa ngựa ${horse.name} thành công.`);
+      refreshData();
+    } catch (err) {
+      showAlert('Lỗi', err.message || 'Không xóa được ngựa.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function deleteHorse(horse) {
+    showAlert(
+      'Xóa ngựa',
+      `Bạn có chắc muốn xóa ngựa ${horse.name || 'này'}?`,
+      [
+        { text: 'Hủy' },
+        { text: 'Xóa', style: 'destructive', onPress: () => confirmDeleteHorse(horse) },
+      ],
+    );
   }
 
   // Open Invite Modal Handler
@@ -636,7 +697,16 @@ export default function RoleHomeScreen({ user, onLogout }) {
               />
             ) : null}
             {activeTab === 'horses' ? (
-              <Horses data={data} query={query} onOpenHorseModal={() => setHorseModalVisible(true)} />
+              <Horses
+                data={data}
+                query={query}
+                onOpenHorseModal={() => {
+                  setNewHorse(emptyNewHorse);
+                  setHorseModalVisible(true);
+                }}
+                onEditHorse={openEditHorse}
+                onDeleteHorse={deleteHorse}
+              />
             ) : null}
             {activeTab === 'tasks' ? (
               <Tasks
@@ -693,7 +763,10 @@ export default function RoleHomeScreen({ user, onLogout }) {
             visible: horseModalVisible,
             newHorse,
             onChangeNewHorse: setNewHorse,
-            onClose: () => setHorseModalVisible(false),
+            onClose: () => {
+              setHorseModalVisible(false);
+              setNewHorse(emptyNewHorse);
+            },
             onSubmit: submitCreateHorse,
           }}
           invite={{

@@ -71,6 +71,8 @@ export const ENDPOINTS = {
     horses: '/owner/horses',
     raceRegistrations: '/owner/race-registrations',
     createHorse: '/owner/horses',
+    updateHorse: (id) => `/owner/horses/${id}`,
+    deleteHorse: (id) => `/owner/horses/${id}`,
     withdrawRegistration: (id) => `/owner/race-registrations/${id}/withdraw`,
     jockeyInvitations: '/owner/jockey-invitations',
     createJockeyInvitation: '/owner/jockey-invitations',

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../constants/theme';
 import { userService } from '../../../services/userService';
@@ -282,8 +282,29 @@ export function Schedule({
   );
 }
 
-export function Horses({ data, query, onOpenHorseModal }) {
-  const horses = (data.horses || []).filter((item) => matchesQuery(item, query));
+const horseApprovalFilters = [
+  { key: 'ALL', label: 'Tất cả' },
+  { key: 'APPROVED', label: 'Duyệt' },
+  { key: 'PENDING', label: 'Chưa duyệt' },
+];
+
+function horseApproved(horse) {
+  return horse.approvalStatus === 'APPROVED' || horse.statusCode === 'APPROVED';
+}
+
+function horseApprovalLabel(horse) {
+  return horseApproved(horse) ? 'Duyệt' : 'Chưa duyệt';
+}
+
+export function Horses({ data, query, onOpenHorseModal, onEditHorse, onDeleteHorse }) {
+  const [approvalFilter, setApprovalFilter] = useState('ALL');
+  const horses = (data.horses || [])
+    .filter((item) => matchesQuery(item, query))
+    .filter((item) => {
+      if (approvalFilter === 'ALL') return true;
+      if (approvalFilter === 'APPROVED') return horseApproved(item);
+      return !horseApproved(item);
+    });
 
   return (
     <View>
@@ -296,19 +317,63 @@ export function Horses({ data, query, onOpenHorseModal }) {
         </Pressable>
       </View>
 
+      <View style={styles.filterRow}>
+        {horseApprovalFilters.map((item) => {
+          const active = approvalFilter === item.key;
+          return (
+            <Pressable
+              key={item.key}
+              style={[styles.filterChip, active && styles.filterChipActive]}
+              onPress={() => setApprovalFilter(item.key)}
+            >
+              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <Section title={`${horses.length} ngựa đang quản lý`}>
         {horses.map((horse) => (
-          <ListItem
-            key={horse.id}
-            icon="footsteps-outline"
-            title={horse.name || 'Ngựa chưa đặt tên'}
-            meta={[
-              horse.breed || 'Chưa cập nhật giống',
-              horse.age ? `${horse.age} tuổi` : '',
-              horse.color || '',
-            ].filter(Boolean).join(' · ')}
-            badge={horse.wins ? `${horse.wins} thắng` : horse.healthStatus}
-          />
+          <View key={horse.id} style={styles.horseRow}>
+            <View style={styles.horseAvatar}>
+              {horse.imageUrl ? (
+                <Image source={{ uri: horse.imageUrl }} style={styles.horseAvatarImage} />
+              ) : (
+                <Ionicons name="footsteps-outline" size={22} color={colors.primary} />
+              )}
+            </View>
+
+            <View style={styles.horseInfo}>
+              <Text style={styles.horseName} numberOfLines={1}>
+                {horse.name || 'Ngựa chưa đặt tên'}
+              </Text>
+              <Text style={styles.horseMeta} numberOfLines={1}>
+                {[
+                  horse.breed || 'Chưa cập nhật giống',
+                  horse.age ? `${horse.age} tuổi` : '',
+                  horse.color || '',
+                ].filter(Boolean).join(' · ')}
+              </Text>
+              <View style={styles.horseActions}>
+                <Pressable style={styles.horseActionButton} onPress={() => onEditHorse(horse)}>
+                  <Ionicons name="create-outline" size={13} color={colors.darkText} />
+                  <Text style={styles.horseActionText}>Sửa</Text>
+                </Pressable>
+                <Pressable style={[styles.horseActionButton, styles.deleteHorseButton]} onPress={() => onDeleteHorse(horse)}>
+                  <Ionicons name="trash-outline" size={13} color="#FDA4AF" />
+                  <Text style={[styles.horseActionText, styles.deleteHorseText]}>Xóa</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={[styles.approvalBadge, horseApproved(horse) && styles.approvalBadgeApproved]}>
+              <Text style={[styles.approvalBadgeText, horseApproved(horse) && styles.approvalBadgeTextApproved]}>
+                {horseApprovalLabel(horse)}
+              </Text>
+            </View>
+          </View>
         ))}
         {!horses.length ? <EmptyText text="Chưa có ngựa hoặc không khớp tìm kiếm." /> : null}
       </Section>
@@ -766,5 +831,112 @@ const styles = StyleSheet.create({
     color: '#1D1705',
     fontSize: 12,
     fontWeight: '800',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 14,
+    backgroundColor: colors.darkSurface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  filterChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#3A2F1B',
+  },
+  filterChipText: {
+    color: colors.darkTextMuted,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  filterChipTextActive: {
+    color: colors.primary,
+  },
+  horseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 92,
+    padding: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D2A40',
+  },
+  horseAvatar: {
+    overflow: 'hidden',
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: colors.darkSurfaceSoft,
+  },
+  horseAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  horseInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  horseName: {
+    color: colors.darkText,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  horseMeta: {
+    marginTop: 4,
+    color: colors.darkTextMuted,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  horseActions: {
+    flexDirection: 'row',
+    gap: 7,
+    marginTop: 8,
+  },
+  horseActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  horseActionText: {
+    color: colors.darkText,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  deleteHorseButton: {
+    borderColor: 'rgba(253, 164, 175, 0.28)',
+  },
+  deleteHorseText: {
+    color: '#FDA4AF',
+  },
+  approvalBadge: {
+    maxWidth: 86,
+    borderRadius: 12,
+    backgroundColor: '#3A2F1B',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  approvalBadgeApproved: {
+    backgroundColor: 'rgba(45, 212, 191, 0.14)',
+  },
+  approvalBadgeText: {
+    color: colors.primary,
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  approvalBadgeTextApproved: {
+    color: '#2DD4BF',
   },
 });

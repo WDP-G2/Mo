@@ -44,11 +44,11 @@ function alertTone(title) {
 export function AppAlertProvider({ children }) {
   const [alert, setAlert] = useState(null);
 
-  const hideAlert = useCallback(() => {
-    const nextAction = alert?.actions?.[0]?.onPress;
+  const hideAlert = useCallback((action) => {
+    const nextAction = action?.onPress;
     setAlert(null);
     if (typeof nextAction === 'function') nextAction();
-  }, [alert]);
+  }, []);
 
   const showAlert = useCallback((title, message, actions = []) => {
     setAlert({
@@ -64,7 +64,7 @@ export function AppAlertProvider({ children }) {
     <AppAlertContext.Provider value={showAlert}>
       {children}
 
-      <Modal visible={Boolean(alert)} transparent={true} animationType="fade" onRequestClose={hideAlert}>
+      <Modal visible={Boolean(alert)} transparent={true} animationType="fade" onRequestClose={() => hideAlert()}>
         <View style={styles.backdrop}>
           <View style={styles.card}>
             <View style={styles.topRow}>
@@ -79,9 +79,33 @@ export function AppAlertProvider({ children }) {
 
             {alert?.message ? <Text style={styles.message}>{alert.message}</Text> : null}
 
-            <Pressable style={styles.button} onPress={hideAlert}>
-              <Text style={styles.buttonText}>{alert?.actions?.[0]?.text || 'Đã hiểu'}</Text>
-            </Pressable>
+            <View style={styles.buttonRow}>
+              {(alert?.actions?.length ? alert.actions : [{ text: 'Đã hiểu' }]).map((action, index, actions) => {
+                const secondary = actions.length > 1 && index === 0;
+                const destructive = action.style === 'destructive';
+                return (
+                  <Pressable
+                    key={`${action.text || 'action'}-${index}`}
+                    style={[
+                      styles.button,
+                      secondary && styles.secondaryButton,
+                      destructive && styles.destructiveButton,
+                    ]}
+                    onPress={() => hideAlert(action)}
+                  >
+                    <Text
+                      style={[
+                        styles.buttonText,
+                        secondary && styles.secondaryButtonText,
+                        destructive && styles.destructiveButtonText,
+                      ]}
+                    >
+                      {action.text || 'Đã hiểu'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
       </Modal>
@@ -152,17 +176,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   button: {
+    flex: 1,
     height: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
     borderRadius: 15,
     backgroundColor: colors.primary,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    backgroundColor: colors.darkSurfaceSoft,
+  },
+  destructiveButton: {
+    backgroundColor: '#FB7185',
   },
   buttonText: {
     color: '#1B1400',
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: 0,
+  },
+  secondaryButtonText: {
+    color: colors.darkText,
+  },
+  destructiveButtonText: {
+    color: '#2A060D',
   },
 });
