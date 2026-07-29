@@ -137,6 +137,8 @@ async function run() {
     expectArray(await request('GET', 'referee/payments', { token: tokens.referee }), 'referee payments');
     expectArray(await request('GET', 'referee/invitations', { token: tokens.referee }), 'referee invitations');
     expectArray(await request('GET', 'referee/violations', { token: tokens.referee }), 'referee violations');
+    expectArray(await request('GET', 'system-settings/violation-types', { token: tokens.referee }), 'public violation types');
+    expectArray(await request('GET', 'system-settings/violation-rules', { token: tokens.referee }), 'public violation rules');
     expectObject(await request('GET', 'notifications?size=5', { token: tokens.referee }), 'referee notifications');
     expectObject(await request('GET', 'notifications/unread-count', { token: tokens.referee }), 'referee unread notifications');
 
