@@ -16,6 +16,7 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
+    "test:owner": "node test/owner_flow.unit.test.mjs",
     "test:smoke": "node test/production_read_smoke.test.js",
     "web": "expo start --web"
   },

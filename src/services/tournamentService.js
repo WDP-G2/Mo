@@ -122,7 +122,9 @@ function mapRace(race) {
     status: race.statusLabel || raceStatusLabel(statusCode || race.status),
     statusCode,
     scheduledStartAt: race.scheduledStartAt || race.scheduledAt || race.startAt || '',
+    scheduledEndAt: race.scheduledEndAt || race.endAt || '',
     entryFee: Number(race.entryFee || 0),
+    deposit: Number(race.deposit || 0),
     minHorses: Number(race.minHorses || race.minParticipants || 0),
     maxHorses: Number(race.maxHorses || race.maxParticipants || 0),
   };

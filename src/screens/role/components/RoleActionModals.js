@@ -5,6 +5,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { ActivityIndicator, Animated, Dimensions, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../constants/theme';
+import {
+  raceHorseLockedByInvitation,
+  raceHorseLockedByRegistration,
+  raceJockeyLockedByInvitation,
+  raceJockeyLockedByRegistration,
+  sameOwnerFlowId as sameId,
+} from '../../../utils/ownerFlow.mjs';
 import { EmptyText } from './RolePrimitives';
 
 export function RoleActionModals({
@@ -29,66 +36,19 @@ export function RoleActionModals({
   );
 }
 
-const ACTIVE_INVITATION_STATUSES = new Set(['PENDING', 'Chờ xử lý', 'ACCEPTED', 'Đã chấp nhận']);
-const ACTIVE_REGISTRATION_STATUSES = new Set([
-  'PENDING',
-  'Chờ duyệt',
-  'APPROVED',
-  'Đã duyệt',
-  'ONGOING',
-  'Đang chạy',
-  'Đang diễn ra',
-]);
-
-function sameId(left, right) {
-  return String(left || '') === String(right || '');
-}
-
-function isActiveInvitation(item) {
-  return ACTIVE_INVITATION_STATUSES.has(item?.status);
-}
-
-function isActiveRegistration(item) {
-  return ACTIVE_REGISTRATION_STATUSES.has(item?.statusCode || item?.status);
-}
-
-function raceHorseLockedByInvitation(invitations, raceId, horseId) {
-  return (invitations || []).some(
-    (item) => isActiveInvitation(item) && sameId(item.raceId, raceId) && sameId(item.horseId, horseId),
-  );
-}
-
-function raceJockeyLockedByInvitation(invitations, raceId, jockeyId) {
-  return (invitations || []).some(
-    (item) => isActiveInvitation(item) && sameId(item.raceId, raceId) && sameId(item.jockeyId, jockeyId),
-  );
-}
-
-function raceHorseLockedByRegistration(registrations, raceId, horseId) {
-  return (registrations || []).some(
-    (item) => isActiveRegistration(item) && sameId(item.raceId, raceId) && sameId(item.horseId, horseId),
-  );
-}
-
-function raceJockeyLockedByRegistration(registrations, raceId, jockeyId) {
-  return (registrations || []).some(
-    (item) => isActiveRegistration(item) && sameId(item.raceId, raceId) && sameId(item.jockeyId, jockeyId),
-  );
-}
-
-function firstAvailableHorse(horses, invitations, registrations, raceId) {
+function firstAvailableHorse(horses, invitations, registrations, race) {
   return (horses || []).find(
     (horse) =>
-      !raceHorseLockedByInvitation(invitations, raceId, horse.id) &&
-      !raceHorseLockedByRegistration(registrations, raceId, horse.id),
+      !raceHorseLockedByInvitation(invitations, race, horse.id) &&
+      !raceHorseLockedByRegistration(registrations, race, horse.id),
   );
 }
 
-function firstAvailableJockey(jockeys, invitations, registrations, raceId) {
+function firstAvailableJockey(jockeys, invitations, registrations, race) {
   return (jockeys || []).find(
     (jockey) =>
-      !raceJockeyLockedByInvitation(invitations, raceId, jockey.id) &&
-      !raceJockeyLockedByRegistration(registrations, raceId, jockey.id),
+      !raceJockeyLockedByInvitation(invitations, race, jockey.id) &&
+      !raceJockeyLockedByRegistration(registrations, race, jockey.id),
   );
 }
 
@@ -464,17 +424,20 @@ function JockeyInviteModal({
   onClose,
   onSubmit,
 }) {
+  const selectedInviteRace = (ownerOpenRaces || []).find((race) =>
+    sameId(race.id, inviteForm.raceId),
+  ) || inviteForm.raceId;
   const availableInviteHorses = (ownerHorses || []).filter(
     (horse) =>
       !inviteForm.raceId ||
-      (!raceHorseLockedByInvitation(ownerInvitations, inviteForm.raceId, horse.id) &&
-        !raceHorseLockedByRegistration(ownerRegistrations, inviteForm.raceId, horse.id)),
+      (!raceHorseLockedByInvitation(ownerInvitations, selectedInviteRace, horse.id) &&
+        !raceHorseLockedByRegistration(ownerRegistrations, selectedInviteRace, horse.id)),
   );
   const availableInviteJockeys = (allJockeys || []).filter(
     (jockey) =>
       !inviteForm.raceId ||
-      (!raceJockeyLockedByInvitation(ownerInvitations, inviteForm.raceId, jockey.id) &&
-        !raceJockeyLockedByRegistration(ownerRegistrations, inviteForm.raceId, jockey.id)),
+      (!raceJockeyLockedByInvitation(ownerInvitations, selectedInviteRace, jockey.id) &&
+        !raceJockeyLockedByRegistration(ownerRegistrations, selectedInviteRace, jockey.id)),
   );
 
   return (
@@ -495,8 +458,8 @@ function JockeyInviteModal({
                   (r) => String(r.tournamentId) === String(tournamentId)
                 );
                 const firstRace = filteredRaces[0];
-                const firstHorse = firstAvailableHorse(ownerHorses, ownerInvitations, ownerRegistrations, firstRace?.id);
-                const firstJockey = firstAvailableJockey(allJockeys, ownerInvitations, ownerRegistrations, firstRace?.id);
+                const firstHorse = firstAvailableHorse(ownerHorses, ownerInvitations, ownerRegistrations, firstRace);
+                const firstJockey = firstAvailableJockey(allJockeys, ownerInvitations, ownerRegistrations, firstRace);
                 onChangeInviteForm((curr) => ({
                   ...curr,
                   tournamentId,
@@ -516,8 +479,8 @@ function JockeyInviteModal({
               getId={(r) => r.id}
               getLabel={(r) => r.name}
               onSelect={(id, race) => {
-                const firstHorse = firstAvailableHorse(ownerHorses, ownerInvitations, ownerRegistrations, id);
-                const firstJockey = firstAvailableJockey(allJockeys, ownerInvitations, ownerRegistrations, id);
+                const firstHorse = firstAvailableHorse(ownerHorses, ownerInvitations, ownerRegistrations, race);
+                const firstJockey = firstAvailableJockey(allJockeys, ownerInvitations, ownerRegistrations, race);
                 onChangeInviteForm((curr) => ({
                   ...curr,
                   raceId: id,

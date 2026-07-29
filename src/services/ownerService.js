@@ -1,5 +1,6 @@
 import { apiRequest } from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
+import { normalizeInvitationStatus } from '../utils/ownerFlow.mjs';
 import { mapHorse } from './horseService';
 
 const REGISTRATION_STATUS_LABELS = {
@@ -39,23 +40,35 @@ function mapRegistration(item) {
     id: String(item.id || item._id || ''),
     raceId: item.raceId || '',
     raceName: item.raceName || item.race || 'Cuộc đua',
+    raceNumber: item.raceNumber ?? null,
+    raceScheduledAt: item.raceScheduledAt || item.scheduledAt || '',
     tournamentId: item.tournamentId || '',
     tournamentName: item.tournamentName || item.tournament || 'Giải đấu',
+    tournamentStartDate: item.tournamentStartDate || '',
     horseId: item.horseId || '',
     horseName: item.horseName || item.horse || '',
     jockeyId: item.jockeyId || '',
     jockeyName: item.jockeyName || item.jockey || '',
+    jockeyInvitationId: item.jockeyInvitationId || '',
     statusCode,
     status,
+    checkInStatus: item.checkInStatus || 'PENDING',
+    entryFeeAmount: Number(item.entryFeeAmount || 0),
+    depositAmount: Number(item.depositAmount || 0),
+    paymentStatus: item.paymentStatus || 'UNCHARGED',
+    depositStatus: item.depositStatus || 'NONE',
+    ownerNote: item.ownerNote || item.notes || '',
     reviewNote: item.reviewNote || '',
     withdrawNote: item.withdrawNote || '',
     createdAt: item.createdAt || item.registeredAt || '',
+    updatedAt: item.updatedAt || '',
     canWithdraw: statusCode === 'PENDING',
   };
 }
 
 function mapInvitation(item) {
   if (!item) return null;
+  const statusCode = normalizeInvitationStatus(item.statusCode || item.status);
 
   return {
     id: String(item.id || item._id || ''),
@@ -65,21 +78,41 @@ function mapInvitation(item) {
     horseName: item.horseName || item.horse || '',
     raceId: item.raceId || '',
     raceLabel: item.raceLabel || item.raceName || '',
+    raceScheduledStartAt: item.raceScheduledStartAt || item.scheduledStartAt || '',
+    raceScheduledEndAt: item.raceScheduledEndAt || item.scheduledEndAt || '',
+    tournamentId: item.tournamentId || '',
     tournamentName: item.tournamentName || item.tournament || '',
     raceDate: item.raceDate || '',
     raceTime: item.raceTime || '',
     location: item.location || '',
     reward: Number(item.reward || item.remunerationAmount || 0),
-    status: item.status || 'Chờ xử lý',
+    statusCode,
+    status: item.status || 'PENDING',
     message: item.message || '',
     responseNote: item.responseNote || '',
     sentAt: item.sentAt || item.createdAt || '',
+    updatedAt: item.updatedAt || '',
+    respondedAt: item.respondedAt || '',
+    cancelledAt: item.cancelledAt || '',
   };
 }
 
 export const ownerService = {
   getProfile() {
     return apiRequest(ENDPOINTS.owner.profile);
+  },
+
+  updateProfile(payload) {
+    return apiRequest(ENDPOINTS.owner.profile, {
+      method: 'PUT',
+      body: {
+        stableName: payload.stableName,
+        address: payload.address,
+        experienceYears: payload.experienceYears,
+        bio: payload.bio,
+        phone: payload.phone,
+      },
+    });
   },
 
   getResults() {
