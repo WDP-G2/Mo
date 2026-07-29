@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -20,11 +19,13 @@ import LoginLogo from '../../components/auth/LoginLogo';
 import PrimaryButton from '../../components/auth/PrimaryButton';
 import RememberForgotRow from '../../components/auth/RememberForgotRow';
 import SocialButton from '../../components/auth/SocialButton';
+import { useAppAlert } from '../../components/ui/AppAlert';
 import { colors, spacing } from '../../constants/theme';
 import { authService } from '../../services/authService';
 import { isAdminRole, isMobileRole } from '../../utils/role';
 
 export default function LoginScreen({ onLogin, onNavigateRegister }) {
+  const showAlert = useAppAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -32,7 +33,7 @@ export default function LoginScreen({ onLogin, onNavigateRegister }) {
 
   async function handleLogin() {
     if (!email.trim() || !password) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập email và mật khẩu.');
+      showAlert('Thiếu thông tin', 'Vui lòng nhập email và mật khẩu.');
       return;
     }
 
@@ -44,7 +45,7 @@ export default function LoginScreen({ onLogin, onNavigateRegister }) {
       });
 
       if (isAdminRole(auth?.user?.role)) {
-        Alert.alert(
+        showAlert(
           'Tài khoản admin',
           'Mobile dành cho Horse Owner, Jockey, Referee và Spectator. Vui lòng dùng FE admin cho tài khoản quản trị.',
         );
@@ -52,7 +53,7 @@ export default function LoginScreen({ onLogin, onNavigateRegister }) {
       }
 
       if (!isMobileRole(auth?.user?.role)) {
-        Alert.alert(
+        showAlert(
           'Role chưa hỗ trợ',
           'Mobile hiện hỗ trợ Horse Owner, Jockey, Referee và Spectator.',
         );
@@ -61,7 +62,7 @@ export default function LoginScreen({ onLogin, onNavigateRegister }) {
 
       onLogin(auth);
     } catch (error) {
-      Alert.alert('Đăng nhập thất bại', error.message || 'Vui lòng thử lại.');
+      showAlert('Đăng nhập thất bại', error.message || 'Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }

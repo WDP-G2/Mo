@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,6 +18,7 @@ import AuthNotice from '../../components/auth/AuthNotice';
 import PrimaryButton from '../../components/auth/PrimaryButton';
 import RegisterBrandHeader from '../../components/auth/RegisterBrandHeader';
 import SocialButton from '../../components/auth/SocialButton';
+import { useAppAlert } from '../../components/ui/AppAlert';
 import { colors } from '../../constants/theme';
 import { authService } from '../../services/authService';
 
@@ -30,6 +30,7 @@ const roleOptions = [
 ];
 
 export default function RegisterScreen({ onNavigateLogin }) {
+  const showAlert = useAppAlert();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('OWNER');
@@ -41,12 +42,12 @@ export default function RegisterScreen({ onNavigateLogin }) {
 
   async function handleRegister() {
     if (!fullName.trim() || !email.trim() || !password) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ họ tên, email và mật khẩu.');
+      showAlert('Thiếu thông tin', 'Vui lòng nhập đầy đủ họ tên, email và mật khẩu.');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Mật khẩu chưa khớp', 'Vui lòng kiểm tra lại mật khẩu xác nhận.');
+      showAlert('Mật khẩu chưa khớp', 'Vui lòng kiểm tra lại mật khẩu xác nhận.');
       return;
     }
 
@@ -58,10 +59,10 @@ export default function RegisterScreen({ onNavigateLogin }) {
         role,
         password,
       });
-      Alert.alert('Đăng ký thành công', 'Bạn có thể đăng nhập bằng tài khoản vừa tạo.');
+      showAlert('Đăng ký thành công', 'Bạn có thể đăng nhập bằng tài khoản vừa tạo.');
       onNavigateLogin();
     } catch (error) {
-      Alert.alert('Đăng ký thất bại', error.message || 'Vui lòng thử lại.');
+      showAlert('Đăng ký thất bại', error.message || 'Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }

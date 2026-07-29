@@ -7,10 +7,10 @@ import {
   StyleSheet,
   Text,
   View,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAppAlert } from '../../components/ui/AppAlert';
 import { colors } from '../../constants/theme';
 import { horseService } from '../../services/horseService';
 import { invitationService } from '../../services/invitationService';
@@ -48,6 +48,7 @@ const emptyNewHorse = {
 };
 
 export default function RoleHomeScreen({ user, onLogout }) {
+  const showAlert = useAppAlert();
   const [activeTab, setActiveTab] = useState('overview');
   const [query, setQuery] = useState('');
   const [data, setData] = useState({});
@@ -226,12 +227,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
   // Place Bet Handler
   async function submitPlaceBet() {
     if (!selectedMarket || !selectedOption || !betAmount) {
-      Alert.alert('Lỗi', 'Vui lòng chọn ngựa và nhập số tiền cược.');
+      showAlert('Lỗi', 'Vui lòng chọn ngựa và nhập số tiền cược.');
       return;
     }
     const amount = Number(betAmount);
     if (isNaN(amount) || amount < selectedMarket.minStake || amount > selectedMarket.maxStake) {
-      Alert.alert('Lỗi', `Số tiền phải từ ${selectedMarket.minStake.toLocaleString()}đ đến ${selectedMarket.maxStake.toLocaleString()}đ.`);
+      showAlert('Lỗi', `Số tiền phải từ ${selectedMarket.minStake.toLocaleString()}đ đến ${selectedMarket.maxStake.toLocaleString()}đ.`);
       return;
     }
 
@@ -242,13 +243,13 @@ export default function RoleHomeScreen({ user, onLogout }) {
         stakeAmount: amount,
         idempotencyKey: 'bet-' + Date.now(),
       });
-      Alert.alert('Thành công', 'Đã đặt cược thành công.');
+      showAlert('Thành công', 'Đã đặt cược thành công.');
       setBetModalVisible(false);
       setBetAmount('');
       setSelectedOption(null);
       refreshData();
     } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Không đặt được cược.');
+      showAlert('Lỗi', err.message || 'Không đặt được cược.');
     } finally {
       setLoading(false);
     }
@@ -258,7 +259,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   async function submitDeposit() {
     const amount = Number(depositAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số tiền nạp hợp lệ.');
+      showAlert('Lỗi', 'Vui lòng nhập số tiền nạp hợp lệ.');
       return;
     }
 
@@ -271,12 +272,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
       
       // Pay using card details
       await spectatorService.payCardDeposit(order.id, cardInfo);
-      Alert.alert('Thành công', `Đã nạp thành công ${amount.toLocaleString()}đ vào ví.`);
+      showAlert('Thành công', `Đã nạp thành công ${amount.toLocaleString()}đ vào ví.`);
       setDepositModalVisible(false);
       setDepositAmount('');
       refreshData();
     } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Thanh toán thất bại.');
+      showAlert('Lỗi', err.message || 'Thanh toán thất bại.');
     } finally {
       setLoading(false);
     }
@@ -285,19 +286,19 @@ export default function RoleHomeScreen({ user, onLogout }) {
   // Create Horse Handler
   async function submitCreateHorse() {
     if (!newHorse.name || !newHorse.breed || !newHorse.age) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin ngựa.');
+      showAlert('Lỗi', 'Vui lòng nhập đầy đủ thông tin ngựa.');
       return;
     }
 
     try {
       setLoading(true);
       await horseService.create(newHorse);
-      Alert.alert('Thành công', `Đã thêm ngựa ${newHorse.name} thành công.`);
+      showAlert('Thành công', `Đã thêm ngựa ${newHorse.name} thành công.`);
       setHorseModalVisible(false);
       setNewHorse(emptyNewHorse);
       refreshData();
     } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Không thêm được ngựa.');
+      showAlert('Lỗi', err.message || 'Không thêm được ngựa.');
     } finally {
       setLoading(false);
     }
@@ -346,7 +347,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       });
       setInviteModalVisible(true);
     } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Không lấy được thông tin ngựa và jockey.');
+      showAlert('Lỗi', err.message || 'Không lấy được thông tin ngựa và jockey.');
     } finally {
       setLoading(false);
     }
@@ -355,7 +356,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   // Create Jockey Invitation Handler
   async function submitJockeyInvitation() {
     if (!inviteForm.horseId || !inviteForm.jockeyId) {
-      Alert.alert('Lỗi', 'Vui lòng chọn ngựa và jockey.');
+      showAlert('Lỗi', 'Vui lòng chọn ngựa và jockey.');
       return;
     }
 
@@ -365,11 +366,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
         ...inviteForm,
         idempotencyKey: 'invite-' + Date.now()
       });
-      Alert.alert('Thành công', 'Đã gửi lời mời tới jockey thành công.');
+      showAlert('Thành công', 'Đã gửi lời mời tới jockey thành công.');
       setInviteModalVisible(false);
       refreshData();
     } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Không gửi được lời mời.');
+      showAlert('Lỗi', err.message || 'Không gửi được lời mời.');
     } finally {
       setLoading(false);
     }
@@ -407,7 +408,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       }
       setRegisterModalVisible(true);
     } catch (err) {
-      Alert.alert('Lỗi', 'Không lấy được thông tin đăng ký giải.');
+      showAlert('Lỗi', 'Không lấy được thông tin đăng ký giải.');
     } finally {
       setLoading(false);
     }
@@ -431,7 +432,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   // Submit Registration Handler
   async function submitRegistration() {
     if (!registerForm.tournamentId || !registerForm.raceId || !registerForm.horseId || !registerForm.jockeyInvitationId) {
-      Alert.alert('Lỗi', 'Vui lòng chọn race, ngựa và lời mời jockey đã được chấp nhận.');
+      showAlert('Lỗi', 'Vui lòng chọn race, ngựa và lời mời jockey đã được chấp nhận.');
       return;
     }
 
@@ -442,11 +443,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
         horseId: registerForm.horseId,
         jockeyInvitationId: registerForm.jockeyInvitationId,
       });
-      Alert.alert('Thành công', 'Đăng ký tham gia giải đấu thành công.');
+      showAlert('Thành công', 'Đăng ký tham gia giải đấu thành công.');
       setRegisterModalVisible(false);
       refreshData();
     } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Đăng ký thất bại.');
+      showAlert('Lỗi', err.message || 'Đăng ký thất bại.');
     } finally {
       setLoading(false);
     }
@@ -475,7 +476,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       }, 2000);
     } catch (err) {
       setSimulationLoading(false);
-      Alert.alert('Lỗi', err.message || 'Mô phỏng thất bại.');
+      showAlert('Lỗi', err.message || 'Mô phỏng thất bại.');
     }
   }
 
@@ -486,9 +487,9 @@ export default function RoleHomeScreen({ user, onLogout }) {
       setLoading(true);
       await refereeService.confirmSimulation(selectedRefereeRace.id, simulationResult.runId);
       setSimulationConfirmed(true);
-      Alert.alert('Thành công', 'Đã xác nhận kết quả mô phỏng.');
+      showAlert('Thành công', 'Đã xác nhận kết quả mô phỏng.');
     } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Xác nhận thất bại.');
+      showAlert('Lỗi', err.message || 'Xác nhận thất bại.');
     } finally {
       setLoading(false);
     }
@@ -508,11 +509,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
       }));
 
       await refereeService.finalizeResults(selectedRefereeRace.id, payload);
-      Alert.alert('Thành công', 'Đã chốt kết quả cuộc đua thành công.');
+      showAlert('Thành công', 'Đã chốt kết quả cuộc đua thành công.');
       setRefereeRaceModalVisible(false);
       refreshData();
     } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Chốt kết quả thất bại.');
+      showAlert('Lỗi', err.message || 'Chốt kết quả thất bại.');
     } finally {
       setLoading(false);
     }
@@ -535,7 +536,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       });
       setViolationModalVisible(true);
     } catch (err) {
-      Alert.alert('Lỗi', 'Không tải được danh sách người tham gia cuộc đua.');
+      showAlert('Lỗi', 'Không tải được danh sách người tham gia cuộc đua.');
     } finally {
       setLoading(false);
     }
@@ -545,7 +546,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   async function submitViolation() {
     if (!selectedViolationRace) return;
     if (!violationForm.participantId) {
-      Alert.alert('Lỗi', 'Vui lòng chọn Jockey/Ngựa vi phạm.');
+      showAlert('Lỗi', 'Vui lòng chọn Jockey/Ngựa vi phạm.');
       return;
     }
     try {
@@ -555,11 +556,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
         ...violationForm,
         gateNumber: selectedPart?.gateNumber || violationForm.gateNumber
       });
-      Alert.alert('Thành công', 'Đã lập biên bản vi phạm thành công.');
+      showAlert('Thành công', 'Đã lập biên bản vi phạm thành công.');
       setViolationModalVisible(false);
       refreshData();
     } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Không lập được biên bản vi phạm.');
+      showAlert('Lỗi', err.message || 'Không lập được biên bản vi phạm.');
     } finally {
       setLoading(false);
     }

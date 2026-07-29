@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { setAuthToken } from './src/api/client';
+import { AppAlertProvider } from './src/components/ui/AppAlert';
 import HomeScreen from './src/screens/home/HomeScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
@@ -29,25 +30,27 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      {authScreen === 'register' && (
-        <RegisterScreen onNavigateLogin={() => setAuthScreen('login')} />
-      )}
+      <AppAlertProvider>
+        {authScreen === 'register' && (
+          <RegisterScreen onNavigateLogin={() => setAuthScreen('login')} />
+        )}
 
-      {authScreen === 'home' && (
-        <HomeScreen
-          user={session.user}
-          onLogout={handleLogout}
-          onNavigateLogin={() => setAuthScreen('login')}
-          onNavigateRegister={() => setAuthScreen('register')}
-        />
-      )}
+        {authScreen === 'home' && (
+          <HomeScreen
+            user={session.user}
+            onLogout={handleLogout}
+            onNavigateLogin={() => setAuthScreen('login')}
+            onNavigateRegister={() => setAuthScreen('register')}
+          />
+        )}
 
-      {authScreen === 'login' && (
-        <LoginScreen
-          onLogin={handleAuthenticated}
-          onNavigateRegister={() => setAuthScreen('register')}
-        />
-      )}
+        {authScreen === 'login' && (
+          <LoginScreen
+            onLogin={handleAuthenticated}
+            onNavigateRegister={() => setAuthScreen('register')}
+          />
+        )}
+      </AppAlertProvider>
     </SafeAreaProvider>
   );
 }
