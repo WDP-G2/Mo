@@ -44,6 +44,41 @@ const ownerTabs = [
   { key: 'account', icon: 'person-outline', activeIcon: 'person', label: 'Tài khoản' },
 ];
 
+const HIDDEN_NOTIFICATION_METADATA_KEYS = new Set([
+  'id',
+  'link',
+  'invitationId',
+  'ownerId',
+  'horseId',
+  'jockeyId',
+  'tournamentId',
+  'raceId',
+  'registrationId',
+]);
+
+const NOTIFICATION_METADATA_LABELS = {
+  responseNote: 'Lý do/ghi chú',
+  reason: 'Lý do',
+  status: 'Trạng thái',
+  horseName: 'Ngựa',
+  jockeyName: 'Jockey',
+  ownerName: 'Owner',
+  tournamentName: 'Giải đấu',
+  raceName: 'Cuộc đua',
+};
+
+const NOTIFICATION_TYPE_LABELS = {
+  JOCKEY_INVITATION_CREATED: 'Lời mời jockey mới',
+  JOCKEY_INVITATION_ACCEPTED: 'Jockey đã chấp nhận',
+  JOCKEY_INVITATION_REJECTED: 'Jockey đã từ chối',
+  JOCKEY_INVITATION_CANCELLED: 'Lời mời jockey đã hủy',
+  JOCKEY_ASSIGNMENT_CANCELLED: 'Phân công jockey đã hủy',
+  REGISTRATION_REJECTED: 'Đăng ký bị từ chối',
+  RACE_STARTED: 'Cuộc đua bắt đầu',
+  RACE_RESULT_CONFIRMED: 'Kết quả đã xác nhận',
+  GENERAL: 'Thông báo hệ thống',
+};
+
 const emptyNewHorse = {
   name: '',
   breed: '',
@@ -1174,7 +1209,13 @@ function NotificationDetail({ item, onRespondInvitation, onResponded }) {
   const [submittingAction, setSubmittingAction] = useState('');
   const [actionError, setActionError] = useState('');
   const metadata = item.metadata && typeof item.metadata === 'object' ? item.metadata : {};
-  const metadataRows = Object.entries(metadata).filter(([, value]) => value !== undefined && value !== null && value !== '');
+  const metadataRows = Object.entries(metadata).filter(
+    ([key, value]) =>
+      !HIDDEN_NOTIFICATION_METADATA_KEYS.has(key) &&
+      value !== undefined &&
+      value !== null &&
+      value !== '',
+  );
   const canRespond =
     item.source === 'server' &&
     item.type === 'JOCKEY_INVITATION_CREATED' &&
@@ -1211,7 +1252,10 @@ function NotificationDetail({ item, onRespondInvitation, onResponded }) {
       <View style={styles.notificationInfoGrid}>
         <NotificationInfoRow label="Thời gian" value={item.time || 'Chưa cập nhật'} />
         <NotificationInfoRow label="Nguồn" value={item.source === 'server' ? 'Hệ thống' : 'Trong phiên này'} />
-        <NotificationInfoRow label="Loại" value={item.type || (item.source === 'local' ? 'Thao tác' : 'GENERAL')} />
+        <NotificationInfoRow
+          label="Loại"
+          value={NOTIFICATION_TYPE_LABELS[item.type] || (item.source === 'local' ? 'Thao tác' : 'Thông báo hệ thống')}
+        />
         <NotificationInfoRow label="Trạng thái" value={item.read ? 'Đã đọc' : 'Chưa đọc'} />
       </View>
 
@@ -1219,7 +1263,7 @@ function NotificationDetail({ item, onRespondInvitation, onResponded }) {
         <View style={styles.notificationMetadata}>
           <Text style={styles.notificationMetadataTitle}>Dữ liệu liên quan</Text>
           {metadataRows.map(([key, value]) => (
-            <NotificationInfoRow key={key} label={key} value={String(value)} />
+            <NotificationInfoRow key={key} label={NOTIFICATION_METADATA_LABELS[key] || key} value={String(value)} />
           ))}
         </View>
       ) : null}
