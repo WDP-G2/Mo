@@ -608,7 +608,7 @@ export function Tasks({
   );
 }
 
-export function Account({ user, role, onLogout }) {
+export function Account({ user, role, onLogout, onRecordActivity }) {
   const [form, setForm] = useState({
     fullName: displayName(user),
     phone: user?.phone || '',
@@ -629,6 +629,13 @@ export function Account({ user, role, onLogout }) {
         location: updated?.location || '',
       });
       setMessage('Đã cập nhật hồ sơ.');
+      if (onRecordActivity) {
+        onRecordActivity(
+          'person-circle-outline',
+          'Đã cập nhật hồ sơ',
+          updated?.fullName || updated?.name || form.fullName,
+        );
+      }
     } catch (requestError) {
       setMessage(requestError.message || 'Không cập nhật được hồ sơ.');
     } finally {

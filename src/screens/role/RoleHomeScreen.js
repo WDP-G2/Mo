@@ -192,6 +192,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   }
 
   async function handleInvitationResponse(id, action) {
+    const invitation = (data.invitations || []).find((item) => item.id === id);
     try {
       const updated =
         role === 'JOCKEY'
@@ -206,7 +207,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
       recordActivity(
         action === 'accept' ? 'checkmark-circle-outline' : 'close-circle-outline',
         action === 'accept' ? 'Đã nhận lời mời' : 'Đã từ chối lời mời',
-        updated?.horseName || updated?.raceName || 'Lời mời jockey',
+        updated?.horseName ||
+          invitation?.horseName ||
+          updated?.raceName ||
+          invitation?.raceName ||
+          invitation?.tournamentName ||
+          'Lời mời jockey',
       );
     } catch (requestError) {
       setError(requestError.message || 'Không cập nhật được lời mời.');
@@ -214,6 +220,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   }
 
   async function handleRefereeInvitationResponse(id, action) {
+    const invitation = (data.invitations || []).find((item) => item.id === id);
     try {
       const updated = await refereeService.respondInvitation(id, action);
       setData((current) => ({
@@ -225,7 +232,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       recordActivity(
         action === 'accept' ? 'shield-checkmark-outline' : 'close-circle-outline',
         action === 'accept' ? 'Đã nhận lời mời trọng tài' : 'Đã từ chối lời mời trọng tài',
-        updated?.raceName || 'Lời mời trọng tài',
+        updated?.raceName || invitation?.raceName || invitation?.tournamentName || 'Lời mời trọng tài',
       );
     } catch (requestError) {
       setError(requestError.message || 'Không cập nhật được lời mời trọng tài.');
@@ -233,6 +240,10 @@ export default function RoleHomeScreen({ user, onLogout }) {
   }
 
   async function handleStartRace(id) {
+    const race = [
+      ...(data.races || []),
+      ...(data.dashboard?.upcomingRaces || []),
+    ].find((item) => item.id === id);
     try {
       const updated = await refereeService.startRace(id);
       setData((current) => ({
@@ -247,13 +258,18 @@ export default function RoleHomeScreen({ user, onLogout }) {
           ),
         },
       }));
-      recordActivity('flag-outline', 'Đã bắt đầu cuộc đua', updated?.name || 'Race');
+      recordActivity(
+        'flag-outline',
+        'Đã bắt đầu cuộc đua',
+        updated?.name || race?.name || race?.raceName || 'Race',
+      );
     } catch (requestError) {
       setError(requestError.message || 'Không bắt đầu được cuộc đua.');
     }
   }
 
   async function handleParticipantCheckIn(raceId, participantId, status) {
+    const participant = (data.participants || []).find((item) => item.id === participantId);
     try {
       const updated = await refereeService.checkInParticipant(raceId, participantId, status);
       setData((current) => ({
@@ -267,7 +283,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       recordActivity(
         status === 'CHECKED_IN' ? 'checkmark-done-outline' : 'remove-circle-outline',
         status === 'CHECKED_IN' ? 'Đã check-in participant' : 'Đã đánh dấu vắng mặt',
-        updated?.horseName || 'Participant',
+        updated?.horseName || participant?.horseName || participant?.raceName || 'Participant',
       );
     } catch (requestError) {
       setError(requestError.message || 'Không check-in được participant.');
@@ -275,6 +291,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   }
 
   async function handleOwnerInvitationCancel(id) {
+    const invitation = (data.invitations || []).find((item) => item.id === id);
     try {
       const updated = await ownerService.cancelJockeyInvitation(id);
       setData((current) => ({
@@ -283,13 +300,18 @@ export default function RoleHomeScreen({ user, onLogout }) {
           item.id === id ? { ...item, status: updated?.status || item.status } : item,
         ),
       }));
-      recordActivity('mail-open-outline', 'Đã hủy lời mời jockey', updated?.jockeyName || 'Jockey');
+      recordActivity(
+        'mail-open-outline',
+        'Đã hủy lời mời jockey',
+        updated?.jockeyName || invitation?.jockeyName || invitation?.horseName || 'Jockey',
+      );
     } catch (requestError) {
       setError(requestError.message || 'Không hủy được lời mời jockey.');
     }
   }
 
   async function handleOwnerRegistrationWithdraw(id) {
+    const registration = (data.registrations || []).find((item) => item.id === id);
     try {
       const updated = await ownerService.withdrawRegistration(id);
       setData((current) => ({
@@ -298,7 +320,15 @@ export default function RoleHomeScreen({ user, onLogout }) {
           item.id === id ? { ...item, ...updated } : item,
         ),
       }));
-      recordActivity('reader-outline', 'Đã rút đăng ký race', updated?.raceName || updated?.tournamentName || 'Đăng ký');
+      recordActivity(
+        'reader-outline',
+        'Đã rút đăng ký race',
+        updated?.raceName ||
+          registration?.raceName ||
+          updated?.tournamentName ||
+          registration?.tournamentName ||
+          'Đăng ký',
+      );
     } catch (requestError) {
       setError(requestError.message || 'Không rút được đăng ký race.');
     }
@@ -806,7 +836,14 @@ export default function RoleHomeScreen({ user, onLogout }) {
                 onRefereeInvitationResponse={handleRefereeInvitationResponse}
               />
             ) : null}
-            {activeTab === 'account' ? <Account user={user} role={role} onLogout={onLogout} /> : null}
+            {activeTab === 'account' ? (
+              <Account
+                user={user}
+                role={role}
+                onLogout={onLogout}
+                onRecordActivity={recordActivity}
+              />
+            ) : null}
           </ScrollView>
         )}
 
