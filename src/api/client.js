@@ -25,6 +25,10 @@ function buildUrl(path, params) {
 
 async function parseResponse(response) {
   const text = await response.text();
+  return parseResponseText(text, response.ok, response.status);
+}
+
+function parseResponseText(text, ok, status) {
   let body = null;
 
   if (text) {
@@ -35,8 +39,8 @@ async function parseResponse(response) {
     }
   }
 
-  if (!response.ok) {
-    const message = body?.message || body?.error || `Request failed (${response.status})`;
+  if (!ok) {
+    const message = body?.message || body?.error || `Request failed (${status})`;
     throw new Error(message);
   }
 
@@ -48,12 +52,43 @@ async function parseResponse(response) {
   return body;
 }
 
+function requestFormData(requestUrl, options) {
+  const { headers, body, ...requestOptions } = options;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(requestOptions.method || 'GET', requestUrl);
+
+    xhr.setRequestHeader('Accept', 'application/json');
+    if (authToken) xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+    Object.entries(headers || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) xhr.setRequestHeader(key, String(value));
+    });
+
+    xhr.onload = () => {
+      try {
+        resolve(parseResponseText(xhr.responseText, xhr.status >= 200 && xhr.status < 300, xhr.status));
+      } catch (error) {
+        reject(error);
+      }
+    };
+    xhr.onerror = () => reject(new Error('Network request failed'));
+    xhr.ontimeout = () => reject(new Error('Network request timed out'));
+    xhr.timeout = requestOptions.timeout || 30000;
+    xhr.send(body);
+  });
+}
+
 export async function apiRequest(path, options = {}) {
   const { params, headers, body, ...requestOptions } = options;
   const requestUrl = buildUrl(path, params);
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   if (process.env.NODE_ENV !== 'production') {
     console.log('[api]', requestOptions.method || 'GET', requestUrl);
+  }
+
+  if (isFormData && typeof XMLHttpRequest !== 'undefined') {
+    return requestFormData(requestUrl, { ...requestOptions, headers, body });
   }
 
   const response = await fetch(requestUrl, {

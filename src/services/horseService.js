@@ -30,7 +30,43 @@ export function mapHorse(horse) {
 
 function appendIfPresent(formData, key, value) {
   if (value === undefined || value === null || value === '') return;
-  formData.append(key, value);
+  formData.append(key, String(value));
+}
+
+function extensionFromMime(type) {
+  if (!type || !String(type).includes('/')) return '';
+  const subtype = String(type).split('/').pop().split(';')[0].trim();
+  if (!subtype) return '';
+  if (subtype === 'jpeg') return 'jpg';
+  if (subtype.includes('wordprocessingml')) return 'docx';
+  return subtype.replace(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+function fileNameFromUri(uri, fallbackName, type) {
+  const rawName = String(uri || '').split('/').pop()?.split('?')[0] || '';
+  let decodedName = rawName;
+  try {
+    decodedName = rawName ? decodeURIComponent(rawName) : '';
+  } catch {
+    decodedName = rawName;
+  }
+
+  const name = typeof fallbackName === 'string' && fallbackName.trim() ? fallbackName.trim() : decodedName;
+  if (name && name.includes('.')) return name;
+
+  const extension = extensionFromMime(type);
+  return extension ? `${name || 'upload'}.${extension}` : name || 'upload';
+}
+
+function appendFileIfPresent(formData, key, file, fallbackName, fallbackType) {
+  if (!file || typeof file.uri !== 'string' || !file.uri.trim()) return;
+
+  const type = typeof file.type === 'string' && file.type.trim() ? file.type.trim() : fallbackType;
+  formData.append(key, {
+    uri: file.uri,
+    name: fileNameFromUri(file.uri, file.name, type),
+    type,
+  });
 }
 
 function buildHorseFormData(payload) {
@@ -46,21 +82,8 @@ function buildHorseFormData(payload) {
   appendIfPresent(formData, 'healthStatus', payload.healthStatus || 'Khỏe mạnh');
   appendIfPresent(formData, 'racingStatus', payload.racingStatus || 'can-race');
 
-  if (payload.imageFile?.uri) {
-    formData.append('image', {
-      uri: payload.imageFile.uri,
-      name: payload.imageFile.name || 'horse.jpg',
-      type: payload.imageFile.type || 'image/jpeg',
-    });
-  }
-
-  if (payload.documentFile?.uri) {
-    formData.append('document', {
-      uri: payload.documentFile.uri,
-      name: payload.documentFile.name || 'horse-health-document.pdf',
-      type: payload.documentFile.type || 'application/pdf',
-    });
-  }
+  appendFileIfPresent(formData, 'image', payload.imageFile, 'horse.jpg', 'image/jpeg');
+  appendFileIfPresent(formData, 'document', payload.documentFile, 'horse-health-document.pdf', 'application/pdf');
 
   return formData;
 }
