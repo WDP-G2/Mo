@@ -71,6 +71,8 @@ function mapInvitation(item) {
     location: item.location || '',
     reward: Number(item.reward || item.remunerationAmount || 0),
     status: item.status || 'Chờ xử lý',
+    message: item.message || '',
+    responseNote: item.responseNote || '',
     sentAt: item.sentAt || item.createdAt || '',
   };
 }

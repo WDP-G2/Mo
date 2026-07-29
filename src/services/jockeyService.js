@@ -42,6 +42,8 @@ function mapInvitation(item) {
     location: item.location || '',
     reward: toNumber(item.reward || item.remunerationAmount),
     status: item.status || 'Chờ xử lý',
+    message: item.message || '',
+    responseNote: item.responseNote || '',
     sentAt: item.sentAt || item.createdAt || '',
   };
 }
@@ -103,12 +105,15 @@ export const jockeyService = {
     return (Array.isArray(invitations) ? invitations : []).map(mapInvitation).filter(Boolean);
   },
 
-  async respondInvitation(id, action) {
+  async respondInvitation(id, action, note = '') {
     const endpoint =
       action === 'accept'
         ? ENDPOINTS.jockey.acceptInvitation(id)
         : ENDPOINTS.jockey.rejectInvitation(id);
-    const invitation = await apiRequest(endpoint, { method: 'PUT' });
+    const invitation = await apiRequest(endpoint, {
+      method: 'PUT',
+      body: note ? { note } : {},
+    });
     return mapInvitation(invitation);
   },
 };

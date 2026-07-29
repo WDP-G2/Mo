@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -278,6 +279,30 @@ export default function RoleHomeScreen({ user, onLogout }) {
       setNotificationsError(requestError.message || 'Không đánh dấu được thông báo.');
       loadNotifications({ silent: true });
     }
+  }
+
+  async function respondToNotificationInvitation(item, action, note) {
+    const invitationId = item?.metadata?.invitationId || '';
+    if (!invitationId) {
+      throw new Error('Thông báo này thiếu invitationId.');
+    }
+
+    const updated = await jockeyService.respondInvitation(invitationId, action, note);
+    setData((current) => ({
+      ...current,
+      invitations: (current.invitations || []).map((invitation) =>
+        String(invitation.id) === String(invitationId)
+          ? { ...invitation, status: updated?.status || invitation.status, responseNote: updated?.responseNote || note }
+          : invitation,
+      ),
+    }));
+
+    recordActivity(
+      action === 'accept' ? 'checkmark-circle-outline' : 'close-circle-outline',
+      action === 'accept' ? 'Đã chấp nhận lời mời jockey' : 'Đã từ chối lời mời jockey',
+      note || updated?.horseName || item?.detail || 'Lời mời jockey',
+    );
+    await loadNotifications({ silent: true });
   }
 
   async function handleInvitationResponse(id, action) {
@@ -1033,13 +1058,14 @@ export default function RoleHomeScreen({ user, onLogout }) {
           onClear={markAllNotificationsRead}
           onClose={() => setActivityModalVisible(false)}
           onPressItem={markNotificationRead}
+          onRespondInvitation={role === 'JOCKEY' ? respondToNotificationInvitation : null}
         />
       </View>
     </SafeAreaView>
   );
 }
 
-function ActivityLogModal({ visible, items, loading, error, onClear, onClose, onPressItem }) {
+function ActivityLogModal({ visible, items, loading, error, onClear, onClose, onPressItem, onRespondInvitation }) {
   const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
@@ -1069,7 +1095,24 @@ function ActivityLogModal({ visible, items, loading, error, onClear, onClose, on
           </View>
 
           {selectedItem ? (
-            <NotificationDetail item={selectedItem} />
+            <NotificationDetail
+              item={selectedItem}
+              onRespondInvitation={onRespondInvitation}
+              onResponded={(action, note) => {
+                setSelectedItem((current) =>
+                  current
+                    ? {
+                      ...current,
+                      type: action === 'accept' ? 'JOCKEY_INVITATION_ACCEPTED' : 'JOCKEY_INVITATION_REJECTED',
+                      title: action === 'accept' ? 'Đã chấp nhận lời mời jockey' : 'Đã từ chối lời mời jockey',
+                      detail: note ? `${current.detail}\n\nLý do/ghi chú: ${note}` : current.detail,
+                      metadata: { ...(current.metadata || {}), responseNote: note },
+                      read: true,
+                    }
+                    : current,
+                );
+              }}
+            />
           ) : (
             <ScrollView style={styles.activityList} contentContainerStyle={styles.activityListContent}>
               {loading ? (
@@ -1126,9 +1169,36 @@ function ActivityLogModal({ visible, items, loading, error, onClear, onClose, on
   );
 }
 
-function NotificationDetail({ item }) {
+function NotificationDetail({ item, onRespondInvitation, onResponded }) {
+  const [note, setNote] = useState('');
+  const [submittingAction, setSubmittingAction] = useState('');
+  const [actionError, setActionError] = useState('');
   const metadata = item.metadata && typeof item.metadata === 'object' ? item.metadata : {};
   const metadataRows = Object.entries(metadata).filter(([, value]) => value !== undefined && value !== null && value !== '');
+  const canRespond =
+    item.source === 'server' &&
+    item.type === 'JOCKEY_INVITATION_CREATED' &&
+    metadata.invitationId &&
+    onRespondInvitation;
+
+  async function submitResponse(action) {
+    const trimmedNote = note.trim();
+    if (action === 'reject' && !trimmedNote) {
+      setActionError('Vui lòng nhập lý do từ chối.');
+      return;
+    }
+
+    try {
+      setSubmittingAction(action);
+      setActionError('');
+      await onRespondInvitation(item, action, trimmedNote);
+      onResponded(action, trimmedNote);
+    } catch (requestError) {
+      setActionError(requestError.message || 'Không phản hồi được lời mời.');
+    } finally {
+      setSubmittingAction('');
+    }
+  }
 
   return (
     <ScrollView style={styles.notificationDetail} contentContainerStyle={styles.notificationDetailContent}>
@@ -1151,6 +1221,41 @@ function NotificationDetail({ item }) {
           {metadataRows.map(([key, value]) => (
             <NotificationInfoRow key={key} label={key} value={String(value)} />
           ))}
+        </View>
+      ) : null}
+
+      {canRespond ? (
+        <View style={styles.notificationResponseBox}>
+          <Text style={styles.notificationMetadataTitle}>Phản hồi lời mời</Text>
+          <TextInput
+            multiline
+            onChangeText={setNote}
+            placeholder="Nhập lý do hoặc ghi chú gửi lại cho owner"
+            placeholderTextColor={colors.darkTextMuted}
+            style={styles.notificationReasonInput}
+            value={note}
+          />
+          {actionError ? <Text style={styles.notificationActionError}>{actionError}</Text> : null}
+          <View style={styles.notificationActionRow}>
+            <Pressable
+              disabled={Boolean(submittingAction)}
+              style={[styles.notificationRejectButton, submittingAction && styles.notificationActionDisabled]}
+              onPress={() => submitResponse('reject')}
+            >
+              <Text style={styles.notificationRejectText}>
+                {submittingAction === 'reject' ? 'Đang gửi...' : 'Từ chối'}
+              </Text>
+            </Pressable>
+            <Pressable
+              disabled={Boolean(submittingAction)}
+              style={[styles.notificationAcceptButton, submittingAction && styles.notificationActionDisabled]}
+              onPress={() => submitResponse('accept')}
+            >
+              <Text style={styles.notificationAcceptText}>
+                {submittingAction === 'accept' ? 'Đang gửi...' : 'Chấp nhận'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
     </ScrollView>
@@ -1466,6 +1571,66 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     marginBottom: 8,
+  },
+  notificationResponseBox: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#1D2A40',
+    paddingTop: 14,
+  },
+  notificationReasonInput: {
+    minHeight: 84,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 13,
+    backgroundColor: colors.darkSurfaceSoft,
+    color: colors.darkText,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    textAlignVertical: 'top',
+  },
+  notificationActionError: {
+    marginTop: 9,
+    color: '#fecdd3',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  notificationActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  notificationRejectButton: {
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.38)',
+    borderRadius: 13,
+    backgroundColor: 'rgba(244, 63, 94, 0.12)',
+    paddingVertical: 12,
+  },
+  notificationRejectText: {
+    color: '#fecdd3',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  notificationAcceptButton: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: 13,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+  },
+  notificationAcceptText: {
+    color: '#1D1705',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  notificationActionDisabled: {
+    opacity: 0.58,
   },
   content: {
     paddingHorizontal: 15,

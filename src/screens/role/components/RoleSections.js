@@ -401,6 +401,9 @@ export function Tasks({
               meta={`${item.horseName || 'Ngựa'} · ${item.tournamentName || item.raceLabel || 'Giải đấu'}`}
               badge={item.status}
             />
+            {item.responseNote ? (
+              <Text style={styles.responseNoteText}>Lý do/ghi chú: {item.responseNote}</Text>
+            ) : null}
             {item.status === 'Chờ xử lý' ? (
               <View style={styles.invitationActions}>
                 <Pressable
@@ -705,6 +708,14 @@ const styles = StyleSheet.create({
   invitationItem: {
     borderBottomWidth: 1,
     borderBottomColor: '#1D2A40',
+  },
+  responseNoteText: {
+    color: colors.darkTextMuted,
+    fontSize: 11,
+    fontWeight: '800',
+    lineHeight: 16,
+    paddingHorizontal: 13,
+    paddingBottom: 10,
   },
   invitationActions: {
     flexDirection: 'row',
