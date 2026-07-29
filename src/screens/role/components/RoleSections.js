@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../constants/theme';
@@ -9,6 +10,28 @@ import { walletService } from '../../../services/walletService';
 import { getRoleLabel } from '../../../utils/role';
 import { displayName, formatDate, initials, matchesQuery } from '../roleData';
 import { EmptyText, ListItem, Metric, ProfileField, Section } from './RolePrimitives';
+
+LocaleConfig.locales.vi = {
+  monthNames: [
+    'Tháng 1',
+    'Tháng 2',
+    'Tháng 3',
+    'Tháng 4',
+    'Tháng 5',
+    'Tháng 6',
+    'Tháng 7',
+    'Tháng 8',
+    'Tháng 9',
+    'Tháng 10',
+    'Tháng 11',
+    'Tháng 12',
+  ],
+  monthNamesShort: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'],
+  dayNames: ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'],
+  dayNamesShort: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'],
+  today: 'Hôm nay',
+};
+LocaleConfig.defaultLocale = 'vi';
 
 function acceptedInvitation(item) {
   return item.status === 'Đã chấp nhận' || item.status === 'ACCEPTED';
@@ -29,6 +52,48 @@ function formatDateTime(value) {
   return date.toLocaleString('vi-VN');
 }
 
+function toCalendarDateKey(value) {
+  if (!value) return '';
+  const raw = String(value);
+  const isoDate = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDate) return isoDate[1];
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function jockeyScheduleStart(item) {
+  if (item?.scheduledStartAt) return item.scheduledStartAt;
+  if (item?.raceDate && item?.raceTime) return `${item.raceDate}T${item.raceTime}`;
+  return item?.raceDate || '';
+}
+
+function jockeyInvitationStatusCode(item) {
+  const status = String(item?.status || '').trim().toUpperCase();
+  if (status === 'CHỜ XỬ LÝ') return 'PENDING';
+  if (status === 'ĐÃ CHẤP NHẬN') return 'ACCEPTED';
+  if (status === 'ĐÃ TỪ CHỐI') return 'REJECTED';
+  if (status === 'ĐÃ HỦY') return 'CANCELLED';
+  return status;
+}
+
+function isUpcomingJockeyInvitation(item) {
+  if (jockeyInvitationStatusCode(item) !== 'ACCEPTED') return false;
+  const timestamp = new Date(jockeyScheduleStart(item)).getTime();
+  return Number.isFinite(timestamp) && timestamp >= Date.now();
+}
+
+const jockeyTaskFilters = [
+  { key: 'ALL', label: 'Tất cả' },
+  { key: 'UPCOMING', label: 'Sắp tới' },
+  { key: 'PENDING', label: 'Chờ phản hồi' },
+  { key: 'ACCEPTED', label: 'Đã chấp nhận' },
+  { key: 'CANCELLED', label: 'Đã hủy' },
+];
+
 function buildJockeyScheduleItems(data) {
   const raceItems = (data.races || []).map((item) => ({
     ...item,
@@ -47,7 +112,7 @@ function buildJockeyScheduleItems(data) {
       detailTitle: item.raceLabel || item.tournamentName || 'Lịch dự kiến',
       raceName: item.raceLabel || 'Race',
       status: 'Đã chấp nhận',
-      scheduledStartAt: item.raceDate && item.raceTime ? `${item.raceDate} ${item.raceTime}` : item.raceDate,
+      scheduledStartAt: jockeyScheduleStart(item),
     }));
 
   return [...raceItems, ...acceptedItems];
@@ -315,6 +380,26 @@ export function Schedule({
 }) {
   const [selectedScheduleItem, setSelectedScheduleItem] = useState(null);
   const [selectedRaceDetail, setSelectedRaceDetail] = useState(null);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
+  const jockeyScheduleItems = role === 'JOCKEY' ? buildJockeyScheduleItems(data) : [];
+  const datedJockeyScheduleItems = jockeyScheduleItems
+    .map((item) => ({
+      item,
+      dateKey: toCalendarDateKey(jockeyScheduleStart(item)),
+      timestamp: new Date(jockeyScheduleStart(item)).getTime(),
+    }))
+    .filter((entry) => entry.dateKey)
+    .sort((first, second) => first.timestamp - second.timestamp);
+  const firstUpcomingJockeyDate =
+    datedJockeyScheduleItems.find((entry) => entry.timestamp >= Date.now())?.dateKey ||
+    datedJockeyScheduleItems[0]?.dateKey ||
+    toCalendarDateKey(new Date());
+
+  useEffect(() => {
+    if (role === 'JOCKEY' && !selectedCalendarDate) {
+      setSelectedCalendarDate(firstUpcomingJockeyDate);
+    }
+  }, [firstUpcomingJockeyDate, role, selectedCalendarDate]);
 
   if (role === 'OWNER') {
     return (
@@ -352,27 +437,87 @@ export function Schedule({
   }
 
   if (role === 'JOCKEY') {
-    const scheduleItems = buildJockeyScheduleItems(data);
+    const raceDateKeys = new Set(datedJockeyScheduleItems.map((entry) => entry.dateKey));
+    const markedDates = {};
+    raceDateKeys.forEach((dateKey) => {
+      markedDates[dateKey] = {
+        customStyles: {
+          container: {
+            backgroundColor: '#991B1B',
+            borderWidth: selectedCalendarDate === dateKey ? 2 : 0,
+            borderColor: colors.primary,
+          },
+          text: { color: '#FFFFFF', fontWeight: '900' },
+        },
+      };
+    });
+    if (selectedCalendarDate && !markedDates[selectedCalendarDate]) {
+      markedDates[selectedCalendarDate] = {
+        customStyles: {
+          container: { backgroundColor: colors.primary },
+          text: { color: '#1D1705', fontWeight: '900' },
+        },
+      };
+    }
+    const selectedDateItems = jockeyScheduleItems
+      .filter((item) => toCalendarDateKey(jockeyScheduleStart(item)) === selectedCalendarDate)
+      .filter((item) => matchesQuery(item, query))
+      .sort(
+        (first, second) =>
+          new Date(jockeyScheduleStart(first)).getTime() -
+          new Date(jockeyScheduleStart(second)).getTime(),
+      );
 
     return (
-      <Section title="Lịch thi đấu của jockey">
-        {scheduleItems.filter((item) => matchesQuery(item, query)).map((item) => (
-          <Pressable key={item.id} onPress={() => setSelectedScheduleItem(item)}>
-            <ListItem
-              icon="calendar-outline"
-              title={item.raceName || item.raceLabel || item.tournamentName || 'Race'}
-              meta={`${item.horseName || 'Ngựa'} · ${item.ownerName || 'Chủ ngựa'}`}
-              badge={item.status}
-            />
-          </Pressable>
-        ))}
-        {!scheduleItems.length ? <EmptyText text="Chưa có lịch thi đấu." /> : null}
+      <View>
+        <Text style={styles.sectionTitle}>Lịch thi đấu của jockey</Text>
+        <View style={styles.jockeyCalendarPanel}>
+          <Calendar
+            current={selectedCalendarDate || firstUpcomingJockeyDate}
+            firstDay={1}
+            markedDates={markedDates}
+            markingType="custom"
+            onDayPress={(day) => setSelectedCalendarDate(day.dateString)}
+            theme={{
+              calendarBackground: colors.darkSurface,
+              monthTextColor: colors.darkText,
+              textSectionTitleColor: colors.darkTextMuted,
+              dayTextColor: colors.darkText,
+              textDisabledColor: '#475569',
+              arrowColor: colors.primary,
+              todayTextColor: colors.primary,
+              textDayFontWeight: '700',
+              textMonthFontWeight: '900',
+              textDayHeaderFontWeight: '800',
+            }}
+          />
+          <View style={styles.calendarLegend}>
+            <View style={styles.calendarLegendDot} />
+            <Text style={styles.calendarLegendText}>Ngày có chặng đua</Text>
+          </View>
+        </View>
+
+        <Section title={`Chặng đua ngày ${selectedCalendarDate || 'đã chọn'}`}>
+          {selectedDateItems.map((item) => (
+            <Pressable key={item.id} onPress={() => setSelectedScheduleItem(item)}>
+              <ListItem
+                icon="calendar-outline"
+                title={item.raceName || item.raceLabel || item.tournamentName || 'Race'}
+                meta={`${formatDateTime(jockeyScheduleStart(item))} · ${item.horseName || 'Ngựa'} · ${item.ownerName || 'Chủ ngựa'}`}
+                badge={item.status}
+              />
+            </Pressable>
+          ))}
+          {!selectedDateItems.length ? (
+            <EmptyText text="Ngày này chưa có chặng đua." />
+          ) : null}
+        </Section>
         <JockeyDetailModal
           item={selectedScheduleItem}
           title="Chi tiết lịch thi đấu"
           onClose={() => setSelectedScheduleItem(null)}
         />
-      </Section>
+      </View>
     );
   }
 
@@ -581,6 +726,7 @@ export function Tasks({
   const [selectedInvitation, setSelectedInvitation] = useState(null);
   const [selectedViolation, setSelectedViolation] = useState(null);
   const [selectedRaceDetail, setSelectedRaceDetail] = useState(null);
+  const [jockeyTaskFilter, setJockeyTaskFilter] = useState('ALL');
 
   if (role === 'OWNER') {
     return (
@@ -621,16 +767,55 @@ export function Tasks({
   }
 
   if (role === 'JOCKEY') {
+    const filteredJockeyInvitations = (data.invitations || [])
+      .filter((item) => matchesQuery(item, query))
+      .filter((item) => {
+        if (jockeyTaskFilter === 'ALL') return true;
+        if (jockeyTaskFilter === 'UPCOMING') return isUpcomingJockeyInvitation(item);
+        return jockeyInvitationStatusCode(item) === jockeyTaskFilter;
+      })
+      .sort((first, second) => {
+        const firstUpcoming = isUpcomingJockeyInvitation(first);
+        const secondUpcoming = isUpcomingJockeyInvitation(second);
+        if (firstUpcoming !== secondUpcoming) return firstUpcoming ? -1 : 1;
+
+        const firstTime = new Date(jockeyScheduleStart(first) || first.sentAt || 0).getTime();
+        const secondTime = new Date(jockeyScheduleStart(second) || second.sentAt || 0).getTime();
+        if (firstUpcoming && secondUpcoming) return firstTime - secondTime;
+        return secondTime - firstTime;
+      });
+
     return (
       <Section title="Lời mời điều khiển ngựa">
-        {(data.invitations || []).filter((item) => matchesQuery(item, query)).map((item) => (
+        <ScrollView
+          horizontal={true}
+          contentContainerStyle={styles.taskFilterRow}
+          showsHorizontalScrollIndicator={false}
+        >
+          {jockeyTaskFilters.map((filter) => {
+            const active = jockeyTaskFilter === filter.key;
+            return (
+              <Pressable
+                key={filter.key}
+                style={[styles.filterChip, active && styles.filterChipActive]}
+                onPress={() => setJockeyTaskFilter(filter.key)}
+              >
+                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                  {filter.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {filteredJockeyInvitations.map((item) => (
           <View key={item.id} style={styles.invitationItem}>
             <Pressable onPress={() => setSelectedInvitation(item)}>
               <ListItem
                 icon="mail-unread-outline"
                 title={item.horseName || 'Ngựa'}
-                meta={`${item.ownerName || 'Chủ ngựa'} · ${item.tournamentName || 'Giải đấu'}`}
-                badge={item.status}
+                meta={`${item.ownerName || 'Chủ ngựa'} · ${item.tournamentName || 'Giải đấu'} · ${formatDateTime(jockeyScheduleStart(item))}`}
+                badge={isUpcomingJockeyInvitation(item) ? 'Sắp tới' : item.status}
               />
             </Pressable>
             {pendingInvitation(item) ? (
@@ -651,7 +836,9 @@ export function Tasks({
             ) : null}
           </View>
         ))}
-        {!data.invitations?.length ? <EmptyText text="Chưa có lời mời." /> : null}
+        {!filteredJockeyInvitations.length ? (
+          <EmptyText text="Không có lời mời phù hợp bộ lọc." />
+        ) : null}
         <JockeyDetailModal
           item={selectedInvitation}
           title="Chi tiết lời mời"
@@ -1824,6 +2011,32 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     lineHeight: 25,
   },
+  jockeyCalendarPanel: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 16,
+    backgroundColor: colors.darkSurface,
+    paddingBottom: 10,
+  },
+  calendarLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  calendarLegendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#991B1B',
+  },
+  calendarLegendText: {
+    color: colors.darkTextMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
   metricGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -2158,6 +2371,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
     marginBottom: 4,
+  },
+  taskFilterRow: {
+    gap: 8,
+    paddingBottom: 12,
   },
   filterChip: {
     borderWidth: 1,
