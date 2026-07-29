@@ -340,17 +340,19 @@ export default function RoleHomeScreen({ user, onLogout }) {
     await loadNotifications({ silent: true });
   }
 
-  async function handleInvitationResponse(id, action) {
+  async function handleInvitationResponse(id, action, note = '') {
     const invitation = (data.invitations || []).find((item) => item.id === id);
     try {
       const updated =
         role === 'JOCKEY'
-          ? await jockeyService.respondInvitation(id, action)
+          ? await jockeyService.respondInvitation(id, action, note)
           : await invitationService.respond(id, action);
       setData((current) => ({
         ...current,
         invitations: (current.invitations || []).map((item) =>
-          item.id === id ? { ...item, status: updated?.status || item.status } : item,
+          item.id === id
+            ? { ...item, status: updated?.status || item.status, responseNote: updated?.responseNote || note }
+            : item,
         ),
       }));
       recordActivity(
@@ -363,8 +365,10 @@ export default function RoleHomeScreen({ user, onLogout }) {
           invitation?.tournamentName ||
           'Lời mời jockey',
       );
+      return updated;
     } catch (requestError) {
       setError(requestError.message || 'Không cập nhật được lời mời.');
+      throw requestError;
     }
   }
 

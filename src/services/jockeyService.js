@@ -6,6 +6,21 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+const INVITATION_STATUS_LABELS = {
+  PENDING: 'Chờ xử lý',
+  ACCEPTED: 'Đã chấp nhận',
+  REJECTED: 'Đã từ chối',
+  CANCELLED: 'Đã hủy',
+  'Chờ xử lý': 'Chờ xử lý',
+  'Đã chấp nhận': 'Đã chấp nhận',
+  'Đã từ chối': 'Đã từ chối',
+  'Đã hủy': 'Đã hủy',
+};
+
+function invitationStatus(value) {
+  return INVITATION_STATUS_LABELS[value] || value || 'Chờ xử lý';
+}
+
 function mapRace(item) {
   if (!item) return null;
 
@@ -33,15 +48,15 @@ function mapInvitation(item) {
     horseId: item.horseId || '',
     tournamentId: item.tournamentId || '',
     raceId: item.raceId || '',
-    ownerName: item.ownerName || item.owner || '',
+    ownerName: item.ownerName || item.ownerUsername || item.owner || '',
     horseName: item.horseName || item.horse || '',
     tournamentName: item.tournamentName || item.tournament || '',
     raceLabel: item.raceLabel || item.raceName || '',
-    raceDate: item.raceDate || '',
+    raceDate: item.raceDate || item.raceScheduledStartAt || '',
     raceTime: item.raceTime || '',
     location: item.location || '',
     reward: toNumber(item.reward || item.remunerationAmount),
-    status: item.status || 'Chờ xử lý',
+    status: invitationStatus(item.status),
     message: item.message || '',
     responseNote: item.responseNote || '',
     sentAt: item.sentAt || item.createdAt || '',

@@ -1,12 +1,44 @@
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../constants/theme';
 import { userService } from '../../../services/userService';
 import { getRoleLabel } from '../../../utils/role';
 import { displayName, formatDate, initials, matchesQuery } from '../roleData';
 import { EmptyText, ListItem, Metric, ProfileField, Section } from './RolePrimitives';
+
+function acceptedInvitation(item) {
+  return item.status === 'Đã chấp nhận' || item.status === 'ACCEPTED';
+}
+
+function pendingInvitation(item) {
+  return item.status === 'Chờ xử lý' || item.status === 'PENDING';
+}
+
+function buildJockeyScheduleItems(data) {
+  const raceItems = (data.races || []).map((item) => ({
+    ...item,
+    detailType: 'race',
+    detailTitle: item.raceName || item.name || item.tournamentName || 'Race',
+  }));
+  const raceKeys = new Set(raceItems.map((item) => String(item.raceId || item.id || '')));
+  const acceptedItems = (data.invitations || [])
+    .filter(acceptedInvitation)
+    .filter((item) => !raceKeys.has(String(item.raceId || item.id || '')))
+    .map((item) => ({
+      ...item,
+      id: `invitation-${item.id}`,
+      originalInvitationId: item.id,
+      detailType: 'invitation',
+      detailTitle: item.raceLabel || item.tournamentName || 'Lịch dự kiến',
+      raceName: item.raceLabel || 'Race',
+      status: 'Đã chấp nhận',
+      scheduledStartAt: item.raceDate && item.raceTime ? `${item.raceDate} ${item.raceTime}` : item.raceDate,
+    }));
+
+  return [...raceItems, ...acceptedItems];
+}
 
 export function Overview({
   role,
@@ -166,6 +198,8 @@ export function Schedule({
   onOpenRefereeRaceModal,
   onOpenViolationModal,
 }) {
+  const [selectedScheduleItem, setSelectedScheduleItem] = useState(null);
+
   if (role === 'OWNER') {
     return (
       <Section title="Đăng ký của chủ ngựa">
@@ -195,18 +229,26 @@ export function Schedule({
   }
 
   if (role === 'JOCKEY') {
+    const scheduleItems = buildJockeyScheduleItems(data);
+
     return (
       <Section title="Lịch thi đấu của jockey">
-        {(data.races || []).filter((item) => matchesQuery(item, query)).map((item) => (
-          <ListItem
-            key={item.id}
-            icon="calendar-outline"
-            title={item.raceName || item.tournamentName || 'Race'}
-            meta={`${item.horseName || 'Ngựa'} · ${item.ownerName || 'Chủ ngựa'}`}
-            badge={item.status}
-          />
+        {scheduleItems.filter((item) => matchesQuery(item, query)).map((item) => (
+          <Pressable key={item.id} onPress={() => setSelectedScheduleItem(item)}>
+            <ListItem
+              icon="calendar-outline"
+              title={item.raceName || item.raceLabel || item.tournamentName || 'Race'}
+              meta={`${item.horseName || 'Ngựa'} · ${item.ownerName || 'Chủ ngựa'}`}
+              badge={item.status}
+            />
+          </Pressable>
         ))}
-        {!data.races?.length ? <EmptyText text="Chưa có lịch thi đấu." /> : null}
+        {!scheduleItems.length ? <EmptyText text="Chưa có lịch thi đấu." /> : null}
+        <JockeyDetailModal
+          item={selectedScheduleItem}
+          title="Chi tiết lịch thi đấu"
+          onClose={() => setSelectedScheduleItem(null)}
+        />
       </Section>
     );
   }
@@ -390,6 +432,8 @@ export function Tasks({
   onParticipantCheckIn,
   onRefereeInvitationResponse,
 }) {
+  const [selectedInvitation, setSelectedInvitation] = useState(null);
+
   if (role === 'OWNER') {
     return (
       <Section title="Lời mời jockey đã gửi">
@@ -426,23 +470,25 @@ export function Tasks({
       <Section title="Lời mời điều khiển ngựa">
         {(data.invitations || []).filter((item) => matchesQuery(item, query)).map((item) => (
           <View key={item.id} style={styles.invitationItem}>
-            <ListItem
-              icon="mail-unread-outline"
-              title={item.horseName || 'Ngựa'}
-              meta={`${item.ownerName || 'Chủ ngựa'} · ${item.tournamentName || 'Giải đấu'}`}
-              badge={item.status}
-            />
-            {item.status === 'Chờ xử lý' ? (
+            <Pressable onPress={() => setSelectedInvitation(item)}>
+              <ListItem
+                icon="mail-unread-outline"
+                title={item.horseName || 'Ngựa'}
+                meta={`${item.ownerName || 'Chủ ngựa'} · ${item.tournamentName || 'Giải đấu'}`}
+                badge={item.status}
+              />
+            </Pressable>
+            {pendingInvitation(item) ? (
               <View style={styles.invitationActions}>
                 <Pressable
                   style={styles.secondaryAction}
-                  onPress={() => onInvitationResponse(item.id, 'reject')}
+                  onPress={() => setSelectedInvitation(item)}
                 >
                   <Text style={styles.secondaryActionText}>Từ chối</Text>
                 </Pressable>
                 <Pressable
                   style={styles.primaryAction}
-                  onPress={() => onInvitationResponse(item.id, 'accept')}
+                  onPress={() => setSelectedInvitation(item)}
                 >
                   <Text style={styles.primaryActionText}>Nhận lời</Text>
                 </Pressable>
@@ -451,6 +497,17 @@ export function Tasks({
           </View>
         ))}
         {!data.invitations?.length ? <EmptyText text="Chưa có lời mời." /> : null}
+        <JockeyDetailModal
+          item={selectedInvitation}
+          title="Chi tiết lời mời"
+          onClose={() => setSelectedInvitation(null)}
+          onInvitationResponse={onInvitationResponse}
+          onResponded={(updated, note) => {
+            setSelectedInvitation((current) =>
+              current ? { ...current, status: updated?.status || current.status, responseNote: updated?.responseNote || note } : current,
+            );
+          }}
+        />
       </Section>
     );
   }
@@ -611,6 +668,111 @@ export function Tasks({
   );
 }
 
+function JockeyDetailModal({ item, title, onClose, onInvitationResponse, onResponded }) {
+  const [note, setNote] = useState('');
+  const [submittingAction, setSubmittingAction] = useState('');
+  const [error, setError] = useState('');
+
+  if (!item) return null;
+
+  async function submitResponse(action) {
+    const trimmedNote = note.trim();
+    if (action === 'reject' && !trimmedNote) {
+      setError('Vui lòng nhập lý do từ chối.');
+      return;
+    }
+
+    try {
+      setSubmittingAction(action);
+      setError('');
+      const updated = await onInvitationResponse(item.originalInvitationId || item.id, action, trimmedNote);
+      onResponded?.(updated, trimmedNote);
+    } catch (requestError) {
+      setError(requestError.message || 'Không phản hồi được lời mời.');
+    } finally {
+      setSubmittingAction('');
+    }
+  }
+
+  return (
+    <Modal visible={Boolean(item)} transparent={true} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.detailBackdrop}>
+        <View style={styles.detailModal}>
+          <View style={styles.detailHeader}>
+            <View style={styles.detailTitleBlock}>
+              <Text style={styles.detailEyebrow}>Jockey</Text>
+              <Text style={styles.detailTitle}>{title}</Text>
+            </View>
+            <Pressable style={styles.detailClose} onPress={onClose}>
+              <Ionicons name="close" size={20} color={colors.darkText} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={styles.detailScroll} contentContainerStyle={styles.detailContent}>
+            <DetailRow icon="footsteps-outline" label="Ngựa" value={item.horseName || 'Chưa cập nhật'} />
+            <DetailRow icon="person-outline" label="Chủ ngựa" value={item.ownerName || 'Chưa cập nhật'} />
+            <DetailRow icon="trophy-outline" label="Giải đấu" value={item.tournamentName || 'Chưa cập nhật'} />
+            <DetailRow icon="flag-outline" label="Cuộc đua" value={item.raceName || item.raceLabel || item.detailTitle || 'Chưa cập nhật'} />
+            <DetailRow icon="calendar-outline" label="Ngày giờ" value={item.scheduledStartAt || item.raceDate || 'Chưa cập nhật'} />
+            <DetailRow icon="location-outline" label="Địa điểm" value={item.location || item.venueAddress || item.venueName || 'Chưa cập nhật'} />
+            <DetailRow icon="cash-outline" label="Thù lao" value={item.reward ? `${Number(item.reward).toLocaleString('vi-VN')}đ` : 'Chưa cập nhật'} />
+            <DetailRow icon="information-circle-outline" label="Trạng thái" value={item.status || 'Chưa cập nhật'} />
+            {item.message ? <DetailRow icon="chatbubble-outline" label="Lời nhắn owner" value={item.message} /> : null}
+            {item.responseNote ? <DetailRow icon="document-text-outline" label="Lý do/ghi chú" value={item.responseNote} /> : null}
+
+            {onInvitationResponse && pendingInvitation(item) ? (
+              <View style={styles.detailResponseBox}>
+                <Text style={styles.detailSectionTitle}>Phản hồi lời mời</Text>
+                <TextInput
+                  multiline
+                  onChangeText={setNote}
+                  placeholder="Nhập lý do hoặc ghi chú gửi lại cho owner"
+                  placeholderTextColor={colors.darkTextMuted}
+                  style={styles.detailReasonInput}
+                  value={note}
+                />
+                {error ? <Text style={styles.detailErrorText}>{error}</Text> : null}
+                <View style={styles.detailActionRow}>
+                  <Pressable
+                    disabled={Boolean(submittingAction)}
+                    style={[styles.detailRejectButton, submittingAction && styles.detailActionDisabled]}
+                    onPress={() => submitResponse('reject')}
+                  >
+                    <Text style={styles.detailRejectText}>
+                      {submittingAction === 'reject' ? 'Đang gửi...' : 'Từ chối'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={Boolean(submittingAction)}
+                    style={[styles.detailAcceptButton, submittingAction && styles.detailActionDisabled]}
+                    onPress={() => submitResponse('accept')}
+                  >
+                    <Text style={styles.detailAcceptText}>
+                      {submittingAction === 'accept' ? 'Đang gửi...' : 'Nhận lời'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function DetailRow({ icon, label, value }) {
+  return (
+    <View style={styles.detailRow}>
+      <Ionicons name={icon} size={17} color={colors.primary} />
+      <View style={styles.detailRowCopy}>
+        <Text style={styles.detailRowLabel}>{label}</Text>
+        <Text style={styles.detailRowValue}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
 export function Account({ user, role, onLogout, onRecordActivity }) {
   const [form, setForm] = useState({
     fullName: displayName(user),
@@ -716,6 +878,143 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     paddingHorizontal: 13,
     paddingBottom: 10,
+  },
+  detailBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    padding: 18,
+  },
+  detailModal: {
+    maxHeight: '82%',
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 18,
+    backgroundColor: colors.darkSurface,
+    padding: 18,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  detailTitleBlock: {
+    flex: 1,
+  },
+  detailEyebrow: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  detailTitle: {
+    marginTop: 3,
+    color: colors.darkText,
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  detailClose: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 13,
+    backgroundColor: colors.darkSurfaceSoft,
+  },
+  detailScroll: {
+    marginTop: 14,
+  },
+  detailContent: {
+    paddingBottom: 4,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    gap: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D2A40',
+    paddingVertical: 10,
+  },
+  detailRowCopy: {
+    flex: 1,
+  },
+  detailRowLabel: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  detailRowValue: {
+    marginTop: 4,
+    color: colors.darkText,
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+  detailResponseBox: {
+    marginTop: 14,
+  },
+  detailSectionTitle: {
+    color: colors.darkText,
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  detailReasonInput: {
+    minHeight: 82,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 13,
+    backgroundColor: colors.darkSurfaceSoft,
+    color: colors.darkText,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    textAlignVertical: 'top',
+  },
+  detailErrorText: {
+    marginTop: 9,
+    color: '#fecdd3',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  detailActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  detailRejectButton: {
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.38)',
+    borderRadius: 13,
+    backgroundColor: 'rgba(244, 63, 94, 0.12)',
+    paddingVertical: 12,
+  },
+  detailRejectText: {
+    color: '#fecdd3',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  detailAcceptButton: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: 13,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+  },
+  detailAcceptText: {
+    color: '#1D1705',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  detailActionDisabled: {
+    opacity: 0.58,
   },
   invitationActions: {
     flexDirection: 'row',
