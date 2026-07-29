@@ -105,6 +105,8 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [allJockeys, setAllJockeys] = useState([]);
   const [ownerHorses, setOwnerHorses] = useState([]);
   const [ownerOpenRaces, setOwnerOpenRaces] = useState([]);
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [inviteError, setInviteError] = useState('');
 
   const [registerModalVisible, setRegisterModalVisible] = useState(false);
   const [registerForm, setRegisterForm] = useState({
@@ -382,8 +384,9 @@ export default function RoleHomeScreen({ user, onLogout }) {
         ownerService.listHorses(),
         userService.listJockeyDirectory(),
       ]);
+      const availableJockeys = (jockeys || []).filter((jockey) => jockey.canInvite !== false);
       setOwnerHorses(horses);
-      setAllJockeys(jockeys);
+      setAllJockeys(availableJockeys);
 
       // Extract all open races across open tournaments
       const tournaments = await tournamentService.list();
@@ -410,11 +413,14 @@ export default function RoleHomeScreen({ user, onLogout }) {
 
       setInviteForm({
         horseId: horses[0]?.id || '',
-        jockeyId: jockeys[0]?.id || '',
+        jockeyId: availableJockeys[0]?.id || '',
         raceId: openRaces[0]?.id || '',
         message: '',
         remunerationAmount: openRaces[0]?.entryFee ? String(openRaces[0].entryFee) : '500000'
       });
+      setInviteError(
+        availableJockeys.length ? '' : 'Hiện chưa có jockey khả dụng để gửi lời mời.',
+      );
       setInviteModalVisible(true);
     } catch (err) {
       showAlert('Lỗi', err.message || 'Không lấy được thông tin ngựa và jockey.');
@@ -425,29 +431,31 @@ export default function RoleHomeScreen({ user, onLogout }) {
 
   // Create Jockey Invitation Handler
   async function submitJockeyInvitation() {
+    setInviteError('');
+
     if (!inviteForm.horseId || !inviteForm.raceId || !inviteForm.jockeyId) {
-      showAlert('Lỗi', 'Vui lòng chọn ngựa, cuộc đua và jockey.');
+      setInviteError('Vui lòng chọn ngựa, cuộc đua và jockey.');
       return;
     }
 
     if (!Number(inviteForm.remunerationAmount)) {
-      showAlert('Lỗi', 'Vui lòng nhập mức thù lao hợp lệ.');
+      setInviteError('Vui lòng nhập mức thù lao hợp lệ.');
       return;
     }
 
     try {
-      setLoading(true);
+      setInviteSubmitting(true);
       await ownerService.createJockeyInvitation({
         ...inviteForm,
         idempotencyKey: 'invite-' + Date.now()
       });
-      showAlert('Thành công', 'Đã gửi lời mời tới jockey thành công.');
       setInviteModalVisible(false);
+      showAlert('Thành công', 'Đã gửi lời mời tới jockey thành công.');
       refreshData();
     } catch (err) {
-      showAlert('Lỗi', err.message || 'Không gửi được lời mời.');
+      setInviteError(err.message || 'Không gửi được lời mời.');
     } finally {
-      setLoading(false);
+      setInviteSubmitting(false);
     }
   }
 
@@ -780,8 +788,13 @@ export default function RoleHomeScreen({ user, onLogout }) {
             ownerOpenRaces,
             allJockeys,
             inviteForm,
+            inviteSubmitting,
+            inviteError,
             onChangeInviteForm: setInviteForm,
-            onClose: () => setInviteModalVisible(false),
+            onClose: () => {
+              setInviteModalVisible(false);
+              setInviteError('');
+            },
             onSubmit: submitJockeyInvitation,
           }}
           registration={{

@@ -382,6 +382,8 @@ function JockeyInviteModal({
   ownerOpenRaces,
   allJockeys,
   inviteForm,
+  inviteSubmitting,
+  inviteError,
   onChangeInviteForm,
   onClose,
   onSubmit,
@@ -417,6 +419,7 @@ function JockeyInviteModal({
               getLabel={(j) => j.fullName || j.username}
               onSelect={(id) => onChangeInviteForm((curr) => ({ ...curr, jockeyId: id }))}
             />
+            {inviteError ? <Text style={styles.inlineError}>{inviteError}</Text> : null}
 
             <Text style={styles.modalLabel}>Mức thù lao (VND):</Text>
             <TextInput
@@ -437,7 +440,13 @@ function JockeyInviteModal({
               onChangeText={(val) => onChangeInviteForm((curr) => ({ ...curr, message: val }))}
             />
 
-            <ModalButtons cancelText="Hủy" confirmText="Gửi lời mời" onCancel={onClose} onConfirm={onSubmit} />
+            <ModalButtons
+              cancelText="Hủy"
+              confirmText={inviteSubmitting ? 'Đang gửi...' : 'Gửi lời mời'}
+              disabled={inviteSubmitting || !allJockeys?.length}
+              onCancel={onClose}
+              onConfirm={onSubmit}
+            />
           </ScrollView>
         </View>
       </View>
@@ -741,13 +750,13 @@ function ModalHeader({ title, onClose }) {
   );
 }
 
-function ModalButtons({ cancelText, confirmText, onCancel, onConfirm }) {
+function ModalButtons({ cancelText, confirmText, disabled = false, onCancel, onConfirm }) {
   return (
     <View style={styles.modalButtonRow}>
       <Pressable style={styles.secondaryAction} onPress={onCancel}>
         <Text style={styles.secondaryActionText}>{cancelText}</Text>
       </Pressable>
-      <Pressable style={styles.primaryAction} onPress={onConfirm}>
+      <Pressable disabled={disabled} style={[styles.primaryAction, disabled && styles.disabledButton]} onPress={onConfirm}>
         <Text style={styles.primaryActionText}>{confirmText}</Text>
       </Pressable>
     </View>
@@ -818,6 +827,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     minHeight: 40,
+  },
+  inlineError: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 113, 133, 0.28)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(251, 113, 133, 0.12)',
+    color: '#FDA4AF',
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 18,
+    padding: 10,
   },
   spacedInput: {
     marginBottom: 8,
