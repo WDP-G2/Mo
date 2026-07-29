@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -495,36 +496,23 @@ function RaceRegistrationModal({
               onSelect={(id) => onChangeRegisterForm((curr) => ({ ...curr, horseId: id }))}
             />
 
-            <Text style={styles.modalLabel}>Chọn lời mời Jockey đã chấp nhận:</Text>
-            <View style={styles.modalBookList}>
-              {(registerJockeys || []).map((j) => {
-                const active = registerForm.jockeyInvitationId === j.id;
-                const disabled = registerForm.raceId && String(j.raceId) !== String(registerForm.raceId);
-                return (
-                  <Pressable
-                    key={j.id}
-                    disabled={disabled}
-                    style={[
-                      styles.modalBookOption,
-                      active && styles.modalBookOptionActive,
-                      disabled && styles.disabledButton,
-                    ]}
-                    onPress={() =>
-                      onChangeRegisterForm((curr) => ({
-                        ...curr,
-                        horseId: j.horseId || curr.horseId,
-                        jockeyInvitationId: j.id,
-                      }))
-                    }
-                  >
-                    <Text style={[styles.modalBookText, active && styles.modalBookTextActive]} numberOfLines={2}>
-                      {j.jockeyName || 'Jockey'} · {j.horseName || 'Ngựa'}
-                    </Text>
-                    {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
-                  </Pressable>
-                );
-              })}
-            </View>
+            <SelectorList
+              label="Chọn lời mời Jockey đã chấp nhận:"
+              items={(registerJockeys || []).filter(
+                (j) => !registerForm.raceId || String(j.raceId) === String(registerForm.raceId),
+              )}
+              activeId={registerForm.jockeyInvitationId}
+              getId={(j) => j.id}
+              getLabel={(j) => `${j.jockeyName || 'Jockey'} · ${j.horseName || 'Ngựa'}`}
+              placeholder="Chọn lời mời"
+              onSelect={(id, j) =>
+                onChangeRegisterForm((curr) => ({
+                  ...curr,
+                  horseId: j.horseId || curr.horseId,
+                  jockeyInvitationId: id,
+                }))
+              }
+            />
             {!registerJockeys?.length ? (
               <EmptyText text="Cần có lời mời Jockey đã chấp nhận trước khi đăng ký race." />
             ) : null}
@@ -631,24 +619,15 @@ function ViolationModal({
               <Text style={styles.modalLabel}>Race: {selectedViolationRace.name}</Text>
 
               <ScrollView>
-                <Text style={styles.modalLabel}>Chọn Jockey/Ngựa vi phạm:</Text>
-                <View style={styles.modalBookList}>
-                  {(violationParticipants || []).map((p) => {
-                    const active = violationForm.participantId === p.id;
-                    return (
-                      <Pressable
-                        key={p.id}
-                        style={[styles.modalBookOption, active && styles.modalBookOptionActive]}
-                        onPress={() => onChangeViolationForm((curr) => ({ ...curr, participantId: p.id }))}
-                      >
-                        <Text style={[styles.modalBookText, active && styles.modalBookTextActive]} numberOfLines={2}>
-                          {p.horseName} (Nài: {p.jockeyName})
-                        </Text>
-                        {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                <SelectorList
+                  label="Chọn Jockey/Ngựa vi phạm:"
+                  items={violationParticipants}
+                  activeId={violationForm.participantId}
+                  getId={(p) => p.id}
+                  getLabel={(p) => `${p.horseName} (Nài: ${p.jockeyName})`}
+                  placeholder="Chọn participant"
+                  onSelect={(id) => onChangeViolationForm((curr) => ({ ...curr, participantId: id }))}
+                />
 
                 <SelectorList
                   label="Loại vi phạm:"
@@ -696,27 +675,56 @@ function ViolationModal({
   );
 }
 
-function SelectorList({ label, items, activeId, getId, getLabel, onSelect }) {
+function SelectorList({ label, items, activeId, getId, getLabel, onSelect, placeholder = 'Chọn một mục' }) {
+  const [open, setOpen] = useState(false);
+  const selectedItem = (items || []).find((item) => String(getId(item)) === String(activeId));
+  const selectedLabel = selectedItem ? getLabel(selectedItem) : placeholder;
+
   return (
     <>
       <Text style={styles.modalLabel}>{label}</Text>
-      <View style={styles.modalBookList}>
-        {(items || []).map((item) => {
-          const id = getId(item);
-          const active = activeId === id;
-          return (
-            <Pressable
-              key={id}
-              style={[styles.modalBookOption, active && styles.modalBookOptionActive]}
-              onPress={() => onSelect(id, item)}
-            >
-              <Text style={[styles.modalBookText, active && styles.modalBookTextActive]} numberOfLines={2}>
-                {getLabel(item)}
-              </Text>
-              {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
-            </Pressable>
-          );
-        })}
+      <View style={styles.dropdown}>
+        <Pressable
+          style={[styles.dropdownTrigger, open && styles.dropdownTriggerOpen]}
+          onPress={() => setOpen((current) => !current)}
+        >
+          <Text
+            style={[styles.dropdownValue, !selectedItem && styles.dropdownPlaceholder]}
+            numberOfLines={2}
+          >
+            {selectedLabel}
+          </Text>
+          <Ionicons
+            name={open ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={open ? colors.primary : colors.darkTextMuted}
+          />
+        </Pressable>
+
+        {open ? (
+          <View style={styles.dropdownMenu}>
+            {(items || []).map((item) => {
+              const id = getId(item);
+              const active = String(activeId) === String(id);
+              return (
+                <Pressable
+                  key={id}
+                  style={[styles.dropdownOption, active && styles.dropdownOptionActive]}
+                  onPress={() => {
+                    onSelect(id, item);
+                    setOpen(false);
+                  }}
+                >
+                  <Text style={[styles.dropdownOptionText, active && styles.dropdownOptionTextActive]} numberOfLines={2}>
+                    {getLabel(item)}
+                  </Text>
+                  {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
+                </Pressable>
+              );
+            })}
+            {!items?.length ? <EmptyText text="Không có dữ liệu để chọn." /> : null}
+          </View>
+        ) : null}
       </View>
     </>
   );
@@ -922,15 +930,48 @@ const styles = StyleSheet.create({
   modalSelectorTextActive: {
     color: colors.primary,
   },
-  modalBookList: {
-    overflow: 'hidden',
+  dropdown: {
+    marginVertical: 6,
+  },
+  dropdownTrigger: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
     borderWidth: 1,
     borderColor: colors.darkBorder,
     borderRadius: 14,
     backgroundColor: colors.darkSurfaceSoft,
-    marginVertical: 6,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
   },
-  modalBookOption: {
+  dropdownTriggerOpen: {
+    borderColor: colors.primary,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    backgroundColor: '#3A2F1B',
+  },
+  dropdownValue: {
+    flex: 1,
+    color: colors.darkText,
+    fontSize: 13,
+    fontWeight: '900',
+    lineHeight: 18,
+  },
+  dropdownPlaceholder: {
+    color: colors.darkTextMuted,
+  },
+  dropdownMenu: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.darkBorder,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+    backgroundColor: colors.darkSurfaceSoft,
+  },
+  dropdownOption: {
     minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
@@ -941,17 +982,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 11,
   },
-  modalBookOptionActive: {
+  dropdownOptionActive: {
     backgroundColor: '#3A2F1B',
   },
-  modalBookText: {
+  dropdownOptionText: {
     flex: 1,
     color: colors.darkTextMuted,
     fontSize: 13,
     fontWeight: '800',
     lineHeight: 18,
   },
-  modalBookTextActive: {
+  dropdownOptionTextActive: {
     color: colors.primary,
   },
   modalButtonRow: {
