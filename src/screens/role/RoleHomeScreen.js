@@ -23,11 +23,19 @@ import { userService } from '../../services/userService';
 import { getRoleLabel } from '../../utils/role';
 import { RoleActionModals } from './components/RoleActionModals';
 import { SearchBox } from './components/RolePrimitives';
-import { Account, Overview, Schedule, Tasks } from './components/RoleSections';
+import { Account, Horses, Overview, Schedule, Tasks } from './components/RoleSections';
 import { buildStats, displayName, initials, loadDataForRole, roleOrSpectator } from './roleData';
 
 const tabs = [
   { key: 'overview', icon: 'grid-outline', activeIcon: 'grid', label: 'Tổng quan' },
+  { key: 'schedule', icon: 'calendar-outline', activeIcon: 'calendar', label: 'Lịch' },
+  { key: 'tasks', icon: 'checkmark-done-outline', activeIcon: 'checkmark-done', label: 'Việc cần làm' },
+  { key: 'account', icon: 'person-outline', activeIcon: 'person', label: 'Tài khoản' },
+];
+
+const ownerTabs = [
+  { key: 'overview', icon: 'grid-outline', activeIcon: 'grid', label: 'Tổng quan' },
+  { key: 'horses', icon: 'footsteps-outline', activeIcon: 'footsteps', label: 'Ngựa' },
   { key: 'schedule', icon: 'calendar-outline', activeIcon: 'calendar', label: 'Lịch' },
   { key: 'tasks', icon: 'checkmark-done-outline', activeIcon: 'checkmark-done', label: 'Việc cần làm' },
   { key: 'account', icon: 'person-outline', activeIcon: 'person', label: 'Tài khoản' },
@@ -56,6 +64,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [error, setError] = useState('');
   const role = roleOrSpectator(user?.role);
   const name = displayName(user);
+  const visibleTabs = role === 'OWNER' ? ownerTabs : tabs;
 
   // Modal States
   const [betModalVisible, setBetModalVisible] = useState(false);
@@ -626,6 +635,9 @@ export default function RoleHomeScreen({ user, onLogout }) {
                 onOpenViolationModal={openViolationModal}
               />
             ) : null}
+            {activeTab === 'horses' ? (
+              <Horses data={data} query={query} onOpenHorseModal={() => setHorseModalVisible(true)} />
+            ) : null}
             {activeTab === 'tasks' ? (
               <Tasks
                 role={role}
@@ -642,7 +654,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
         )}
 
         <View style={styles.tabBar}>
-          {tabs.map((tab) => {
+          {visibleTabs.map((tab) => {
             const active = activeTab === tab.key;
             return (
               <Pressable key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}>
@@ -821,12 +833,13 @@ const styles = StyleSheet.create({
   },
   tab: {
     alignItems: 'center',
-    minWidth: 68,
+    minWidth: 56,
+    paddingHorizontal: 2,
   },
   tabText: {
     marginTop: 4,
     color: colors.darkTextMuted,
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '800',
   },
   activeTabText: {

@@ -282,6 +282,40 @@ export function Schedule({
   );
 }
 
+export function Horses({ data, query, onOpenHorseModal }) {
+  const horses = (data.horses || []).filter((item) => matchesQuery(item, query));
+
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>Danh sách ngựa của tôi</Text>
+
+      <View style={styles.quickActionsRow}>
+        <Pressable style={styles.primaryActionButton} onPress={onOpenHorseModal}>
+          <Ionicons name="add-circle-outline" size={16} color="#1D1705" />
+          <Text style={styles.primaryActionTextButton}>Thêm ngựa</Text>
+        </Pressable>
+      </View>
+
+      <Section title={`${horses.length} ngựa đang quản lý`}>
+        {horses.map((horse) => (
+          <ListItem
+            key={horse.id}
+            icon="footsteps-outline"
+            title={horse.name || 'Ngựa chưa đặt tên'}
+            meta={[
+              horse.breed || 'Chưa cập nhật giống',
+              horse.age ? `${horse.age} tuổi` : '',
+              horse.color || '',
+            ].filter(Boolean).join(' · ')}
+            badge={horse.wins ? `${horse.wins} thắng` : horse.healthStatus}
+          />
+        ))}
+        {!horses.length ? <EmptyText text="Chưa có ngựa hoặc không khớp tìm kiếm." /> : null}
+      </Section>
+    </View>
+  );
+}
+
 export function Tasks({
   role,
   data,
