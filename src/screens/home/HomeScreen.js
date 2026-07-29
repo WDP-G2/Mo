@@ -3,10 +3,20 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../../constants/theme';
+import GuestHomeScreen from './GuestHomeScreen';
 import RoleHomeScreen from '../role/RoleHomeScreen';
 import { isAdminRole } from '../../utils/role';
 
-export default function HomeScreen({ user, onLogout }) {
+export default function HomeScreen({ user, onLogout, onNavigateLogin, onNavigateRegister }) {
+  if (!user) {
+    return (
+      <GuestHomeScreen
+        onNavigateLogin={onNavigateLogin}
+        onNavigateRegister={onNavigateRegister}
+      />
+    );
+  }
+
   if (!isAdminRole(user?.role)) {
     return <RoleHomeScreen user={user} onLogout={onLogout} />;
   }

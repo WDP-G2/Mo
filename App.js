@@ -7,7 +7,7 @@ import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 
 export default function App() {
-  const [authScreen, setAuthScreen] = useState('login');
+  const [authScreen, setAuthScreen] = useState('home');
   const [session, setSession] = useState({ token: null, user: null });
 
   function handleAuthenticated(auth) {
@@ -24,7 +24,7 @@ export default function App() {
   function handleLogout() {
     setAuthToken(null);
     setSession({ token: null, user: null });
-    setAuthScreen('login');
+    setAuthScreen('home');
   }
 
   return (
@@ -33,7 +33,14 @@ export default function App() {
         <RegisterScreen onNavigateLogin={() => setAuthScreen('login')} />
       )}
 
-      {authScreen === 'home' && <HomeScreen user={session.user} onLogout={handleLogout} />}
+      {authScreen === 'home' && (
+        <HomeScreen
+          user={session.user}
+          onLogout={handleLogout}
+          onNavigateLogin={() => setAuthScreen('login')}
+          onNavigateRegister={() => setAuthScreen('register')}
+        />
+      )}
 
       {authScreen === 'login' && (
         <LoginScreen
