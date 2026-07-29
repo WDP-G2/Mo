@@ -40,6 +40,35 @@ function buildJockeyScheduleItems(data) {
   return [...raceItems, ...acceptedItems];
 }
 
+function violationSignature(item) {
+  return [
+    item?.raceId,
+    item?.participantId,
+    item?.horseName || item?.horse,
+    item?.jockeyName || item?.jockey,
+    item?.type,
+    item?.severity,
+    item?.penalty,
+    item?.description,
+  ].map((value) => String(value || '').trim()).join('|');
+}
+
+function dedupeViolations(items) {
+  const seen = new Set();
+  return (items || []).filter((item) => {
+    const key = item?.id ? `id:${item.id}` : `sig:${violationSignature(item)}`;
+    const contentKey = `sig:${violationSignature(item)}`;
+    if (seen.has(key) || seen.has(contentKey)) return false;
+    seen.add(key);
+    seen.add(contentKey);
+    return true;
+  });
+}
+
+function violationEvidenceCount(item) {
+  return (item?.evidence || []).filter((ev) => ev?.url).length + (item?.imageFile?.uri ? 1 : 0);
+}
+
 export function Overview({
   role,
   stats,
@@ -920,11 +949,13 @@ function GateInput({ value, onChange }) {
 }
 
 function RefereeRaceDetailModal({ race, data, onClose, onParticipantCheckIn, onOpenViolationModal, onStartRace, onOpenRefereeRaceModal, onUpdateGate, onRandomizeGates }) {
+  const [selectedViolation, setSelectedViolation] = useState(null);
   if (!race) return null;
 
   const payment = (data.payments || []).find((p) => String(p.raceId) === String(race.id));
   const participants = (data.participants || []).filter((p) => String(p.raceId) === String(race.id));
-  const violations = (data.violations || []).filter((v) => String(v.raceId) === String(race.id));
+  const violations = dedupeViolations((data.violations || []).filter((v) => String(v.raceId) === String(race.id)));
+  const visibleViolations = violations.slice(0, 5);
 
   const isScheduled = race.statusCode === 'SCHEDULED' || race.canStart;
   const isOngoing = race.statusCode === 'ONGOING' || race.status === 'Đang chạy' || race.status === 'Đang diễn ra';
@@ -1127,10 +1158,10 @@ function RefereeRaceDetailModal({ race, data, onClose, onParticipantCheckIn, onO
                 </Pressable>
               ) : null}
             </View>
-            {violations.map((item) => (
-              <View key={item.id} style={styles.detailListItemCol}>
+            {visibleViolations.map((item) => (
+              <Pressable key={item.id || violationSignature(item)} style={styles.detailListItemCol} onPress={() => setSelectedViolation(item)}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={styles.detailItemTitle}>
+                  <Text style={styles.detailItemTitle} numberOfLines={2}>
                     {item.horse || item.horseName || 'Ngựa'} (Nài: {item.jockey || item.jockeyName || 'Chưa rõ'})
                   </Text>
                   <View style={[styles.detailStatusBadge, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
@@ -1146,19 +1177,18 @@ function RefereeRaceDetailModal({ race, data, onClose, onParticipantCheckIn, onO
                 {item.description ? (
                   <Text style={[styles.detailItemMeta, { marginTop: 4, fontStyle: 'italic' }]}>Chi tiết: {item.description}</Text>
                 ) : null}
-                {item.evidence && item.evidence.length > 0 ? (
-                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-                    {item.evidence.map((ev, index) => (
-                      <Image
-                        key={index}
-                        source={{ uri: ev.url }}
-                        style={{ width: 80, height: 60, borderRadius: 6, resizeMode: 'cover' }}
-                      />
-                    ))}
-                  </View>
+                {violationEvidenceCount(item) > 0 ? (
+                  <Text style={[styles.detailItemMeta, { color: colors.primary, marginTop: 4 }]}>
+                    Có {violationEvidenceCount(item)} ảnh bằng chứng · Bấm để xem
+                  </Text>
                 ) : null}
-              </View>
+              </Pressable>
             ))}
+            {violations.length > visibleViolations.length ? (
+              <Text style={[styles.detailItemMeta, { marginTop: 8, textAlign: 'center' }]}>
+                Đang ẩn {violations.length - visibleViolations.length} biên bản trùng/cũ để app nhẹ hơn.
+              </Text>
+            ) : null}
             {violations.length === 0 ? (
               <EmptyText text="Chưa ghi nhận lỗi vi phạm nào trong cuộc đua này." />
             ) : null}
@@ -1169,6 +1199,7 @@ function RefereeRaceDetailModal({ race, data, onClose, onParticipantCheckIn, onO
               </Pressable>
             </View>
           </ScrollView>
+          <ViolationDetailModal item={selectedViolation} onClose={() => setSelectedViolation(null)} />
         </View>
       </View>
     </Modal>

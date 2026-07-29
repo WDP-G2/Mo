@@ -95,6 +95,72 @@ function mapParticipant(participant, race) {
   };
 }
 
+function appendIfPresent(formData, key, value) {
+  if (value === undefined || value === null || value === '') return;
+  formData.append(key, String(value));
+}
+
+function extensionFromMime(type) {
+  if (!type || !String(type).includes('/')) return '';
+  const subtype = String(type).split('/').pop().split(';')[0].trim();
+  if (!subtype) return '';
+  if (subtype === 'jpeg') return 'jpg';
+  return subtype.replace(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+function fileNameFromUri(uri, fallbackName, type) {
+  const rawName = String(uri || '').split('/').pop()?.split('?')[0] || '';
+  let decodedName = rawName;
+  try {
+    decodedName = rawName ? decodeURIComponent(rawName) : '';
+  } catch {
+    decodedName = rawName;
+  }
+
+  const name = typeof fallbackName === 'string' && fallbackName.trim() ? fallbackName.trim() : decodedName;
+  if (name && name.includes('.')) return name;
+
+  const extension = extensionFromMime(type);
+  return extension ? `${name || 'violation-evidence'}.${extension}` : name || 'violation-evidence';
+}
+
+function appendFileIfPresent(formData, key, file, fallbackName, fallbackType) {
+  if (!file || typeof file.uri !== 'string' || !file.uri.trim()) return;
+
+  const type = typeof file.type === 'string' && file.type.trim() ? file.type.trim() : fallbackType;
+  formData.append(key, {
+    uri: file.uri,
+    name: fileNameFromUri(file.uri, file.name, type),
+    type,
+  });
+}
+
+function buildViolationFormData(payload) {
+  const formData = new FormData();
+  appendIfPresent(formData, 'participantId', payload.participantId);
+  appendIfPresent(formData, 'horseNo', Number(payload.gateNumber || payload.horseNo || 0));
+  appendIfPresent(formData, 'type', payload.type || 'Khác');
+  appendIfPresent(formData, 'severity', payload.severity || 'Phạt nhẹ');
+  appendIfPresent(formData, 'description', payload.description || '');
+  appendIfPresent(formData, 'penalty', payload.penalty || '');
+  appendIfPresent(formData, 'occurredAt', payload.occurredAt || new Date().toISOString());
+  appendFileIfPresent(formData, 'evidence', payload.imageFile, 'violation-evidence.jpg', 'image/jpeg');
+  return formData;
+}
+
+function normalizeViolationResponse(response, payload, raceId, clientRequestKey) {
+  const violation = response?.violation || response;
+  if (!violation || typeof violation !== 'object') return null;
+
+  return {
+    ...violation,
+    id: String(violation.id || violation._id || clientRequestKey || ''),
+    raceId: String(violation.raceId || raceId || ''),
+    imageFile: violation.evidence?.length ? null : payload.imageFile || null,
+    clientRequestKey,
+  };
+}
+
 export const refereeService = {
   async getDashboard() {
     const dashboard = await apiRequest(ENDPOINTS.referee.dashboard);
@@ -176,9 +242,11 @@ export const refereeService = {
   },
 
   async createViolation(raceId, payload) {
-    return apiRequest(ENDPOINTS.referee.raceViolations(raceId), {
-      method: 'POST',
-      body: {
+    const idempotencyKey = payload.idempotencyKey || `violation-${raceId}-${Date.now()}`;
+    const headers = { 'Idempotency-Key': idempotencyKey };
+    const body = payload.imageFile?.uri
+      ? buildViolationFormData(payload)
+      : {
         participantId: payload.participantId,
         horseNo: Number(payload.gateNumber || payload.horseNo || 0),
         type: payload.type || 'Khác',
@@ -186,8 +254,14 @@ export const refereeService = {
         description: payload.description || '',
         penalty: payload.penalty || '',
         occurredAt: new Date().toISOString(),
-      },
+      };
+
+    const response = await apiRequest(ENDPOINTS.referee.raceViolations(raceId), {
+      method: 'POST',
+      headers,
+      body,
     });
+    return normalizeViolationResponse(response, payload, raceId, idempotencyKey);
   },
 
   async listPayments() {

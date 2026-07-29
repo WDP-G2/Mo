@@ -881,6 +881,7 @@ function ViolationModal({
   violationForm,
   violationTypeOptions = [],
   violationSeverityOptions = [],
+  violationSubmitting = false,
   onChangeViolationForm,
   onClose,
   onSubmit,
@@ -986,7 +987,13 @@ function ViolationModal({
                   </View>
                 ) : null}
 
-                <ModalButtons cancelText="Hoàn tất" confirmText="Lập biên bản" onCancel={onClose} onConfirm={onSubmit} />
+                <ModalButtons
+                  cancelText="Hoàn tất"
+                  confirmText={violationSubmitting ? 'Đang lập...' : 'Lập biên bản'}
+                  disabled={violationSubmitting}
+                  onCancel={onClose}
+                  onConfirm={onSubmit}
+                />
               </ScrollView>
             </View>
           )}

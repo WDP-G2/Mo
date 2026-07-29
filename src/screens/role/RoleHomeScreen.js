@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
@@ -99,6 +99,25 @@ const emptyNewHorse = {
   healthStatus: 'Khỏe mạnh',
   racingStatus: 'can-race',
 };
+
+function createClientRequestKey(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function sameViolation(a, b) {
+  if (!a || !b) return false;
+  if (a.id && b.id && String(a.id) === String(b.id)) return true;
+  if (a.clientRequestKey && b.clientRequestKey && a.clientRequestKey === b.clientRequestKey) return true;
+  return (
+    String(a.raceId || '') === String(b.raceId || '') &&
+    String(a.participantId || '') === String(b.participantId || '') &&
+    String(a.horseName || a.horse || '') === String(b.horseName || b.horse || '') &&
+    String(a.jockeyName || a.jockey || '') === String(b.jockeyName || b.jockey || '') &&
+    String(a.type || '') === String(b.type || '') &&
+    String(a.severity || '') === String(b.severity || '') &&
+    String(a.description || '') === String(b.description || '')
+  );
+}
 
 function tournamentOpenForRegistration(tournament) {
   return [
@@ -205,6 +224,8 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [violationParticipants, setViolationParticipants] = useState([]);
   const [violationTypeOptions, setViolationTypeOptions] = useState([]);
   const [violationSeverityOptions, setViolationSeverityOptions] = useState([]);
+  const [violationSubmitting, setViolationSubmitting] = useState(false);
+  const violationSubmitLockRef = useRef(false);
 
   // Stats Details Modals States
   const [jockeyStatsModalVisible, setJockeyStatsModalVisible] = useState(false);
@@ -993,7 +1014,8 @@ export default function RoleHomeScreen({ user, onLogout }) {
         severity: safeSeverities.find((item) => item.label === 'Phạt nhẹ')?.label || safeSeverities[0]?.label || 'Phạt nhẹ',
         description: '',
         penalty: '',
-        imageFile: null
+        imageFile: null,
+        idempotencyKey: createClientRequestKey(`violation-${race.id}`),
       });
       setViolationModalVisible(true);
     } catch (err) {
@@ -1006,16 +1028,20 @@ export default function RoleHomeScreen({ user, onLogout }) {
   // Submit Violation Handler
   async function submitViolation() {
     if (!selectedViolationRace) return;
+    if (violationSubmitting || violationSubmitLockRef.current) return;
     if (!violationForm.participantId) {
       showAlert('Lỗi', 'Vui lòng chọn Jockey/Ngựa vi phạm.');
       return;
     }
     try {
+      violationSubmitLockRef.current = true;
+      setViolationSubmitting(true);
       setLoading(true);
       const selectedPart = violationParticipants.find(p => p.id === violationForm.participantId);
       const created = await refereeService.createViolation(selectedViolationRace.id, {
         ...violationForm,
-        gateNumber: selectedPart?.gateNumber || violationForm.gateNumber
+        gateNumber: selectedPart?.gateNumber || violationForm.gateNumber,
+        idempotencyKey: violationForm.idempotencyKey || createClientRequestKey(`violation-${selectedViolationRace.id}`),
       });
       recordActivity(
         'warning-outline',
@@ -1035,10 +1061,13 @@ export default function RoleHomeScreen({ user, onLogout }) {
       if (created) {
         setData((current) => ({
           ...current,
-          violations: [created, ...(current.violations || [])],
+          violations: [
+            created,
+            ...(current.violations || []).filter((item) => !sameViolation(item, created)),
+          ],
         }));
       }
-      // Reset form but KEEP MODAL OPEN so referee can report more violations
+      setViolationModalVisible(false);
       setViolationForm({
         participantId: violationParticipants[0]?.id || '',
         gateNumber: violationParticipants[0]?.gateNumber ? String(violationParticipants[0].gateNumber) : '1',
@@ -1047,12 +1076,15 @@ export default function RoleHomeScreen({ user, onLogout }) {
         description: '',
         penalty: '',
         imageFile: null,
+        idempotencyKey: createClientRequestKey(`violation-${selectedViolationRace.id}`),
       });
-      showAlert('Thành công', 'Đã lập biên bản vi phạm. Bạn có thể tiếp tục báo thêm hoặc đóng cửa sổ.');
+      showAlert('Thành công', 'Đã lập biên bản vi phạm.');
     } catch (err) {
       showAlert('Lỗi', err.message || 'Không lập được biên bản vi phạm.');
     } finally {
       setLoading(false);
+      setViolationSubmitting(false);
+      violationSubmitLockRef.current = false;
     }
   }
 
@@ -1259,6 +1291,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
             violationForm,
             violationTypeOptions,
             violationSeverityOptions,
+            violationSubmitting,
             onChangeViolationForm: setViolationForm,
             onClose: () => setViolationModalVisible(false),
             onSubmit: submitViolation,
