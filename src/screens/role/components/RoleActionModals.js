@@ -42,7 +42,7 @@ function BetModal({
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Đặt cược ảo</Text>
+          <ModalHeader title="Đặt cược ảo" onClose={onClose} />
 
           {selectedMarket && (
             <ScrollView>
@@ -94,7 +94,7 @@ function DepositModal({ visible, depositAmount, cardInfo, onChangeDepositAmount,
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Nạp tiền vào ví</Text>
+          <ModalHeader title="Nạp tiền vào ví" onClose={onClose} />
 
           <ScrollView>
             <Text style={styles.modalLabel}>Chọn số tiền nhanh:</Text>
@@ -226,7 +226,7 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>{editing ? 'Sửa thông tin ngựa' : 'Thêm ngựa thi đấu mới'}</Text>
+          <ModalHeader title={editing ? 'Sửa thông tin ngựa' : 'Thêm ngựa thi đấu mới'} onClose={onClose} />
 
           <ScrollView>
             <Text style={styles.modalLabel}>Tên ngựa:</Text>
@@ -389,7 +389,7 @@ function JockeyInviteModal({
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Gửi lời mời Jockey</Text>
+          <ModalHeader title="Gửi lời mời Jockey" onClose={onClose} />
 
           <ScrollView>
             <SelectorList
@@ -460,7 +460,7 @@ function RaceRegistrationModal({
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Đăng ký giải đấu</Text>
+          <ModalHeader title="Đăng ký giải đấu" onClose={onClose} />
 
           <ScrollView>
             <SelectorList
@@ -496,7 +496,7 @@ function RaceRegistrationModal({
             />
 
             <Text style={styles.modalLabel}>Chọn lời mời Jockey đã chấp nhận:</Text>
-            <View style={styles.modalSelector}>
+            <View style={styles.modalBookList}>
               {(registerJockeys || []).map((j) => {
                 const active = registerForm.jockeyInvitationId === j.id;
                 const disabled = registerForm.raceId && String(j.raceId) !== String(registerForm.raceId);
@@ -505,8 +505,8 @@ function RaceRegistrationModal({
                     key={j.id}
                     disabled={disabled}
                     style={[
-                      styles.modalSelectorOption,
-                      active && styles.modalSelectorOptionActive,
+                      styles.modalBookOption,
+                      active && styles.modalBookOptionActive,
                       disabled && styles.disabledButton,
                     ]}
                     onPress={() =>
@@ -517,9 +517,10 @@ function RaceRegistrationModal({
                       }))
                     }
                   >
-                    <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
+                    <Text style={[styles.modalBookText, active && styles.modalBookTextActive]} numberOfLines={2}>
                       {j.jockeyName || 'Jockey'} · {j.horseName || 'Ngựa'}
                     </Text>
+                    {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
                   </Pressable>
                 );
               })}
@@ -553,7 +554,7 @@ function RefereeRaceModal({
         <View style={[styles.modalContent, styles.tallModal]}>
           {selectedRefereeRace && (
             <View style={styles.flexContent}>
-              <Text style={styles.modalTitle}>Mô phỏng cuộc đua</Text>
+              <ModalHeader title="Mô phỏng cuộc đua" onClose={onClose} />
               <Text style={styles.modalLabel}>Race: {selectedRefereeRace.name}</Text>
               <Text style={styles.modalLabel}>Giải đấu: {selectedRefereeRace.tournamentName}</Text>
 
@@ -626,23 +627,24 @@ function ViolationModal({
         <View style={styles.modalContent}>
           {selectedViolationRace && (
             <View style={styles.flexContent}>
-              <Text style={styles.modalTitle}>Lập biên bản vi phạm</Text>
+              <ModalHeader title="Lập biên bản vi phạm" onClose={onClose} />
               <Text style={styles.modalLabel}>Race: {selectedViolationRace.name}</Text>
 
               <ScrollView>
                 <Text style={styles.modalLabel}>Chọn Jockey/Ngựa vi phạm:</Text>
-                <View style={styles.modalSelector}>
+                <View style={styles.modalBookList}>
                   {(violationParticipants || []).map((p) => {
                     const active = violationForm.participantId === p.id;
                     return (
                       <Pressable
                         key={p.id}
-                        style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
+                        style={[styles.modalBookOption, active && styles.modalBookOptionActive]}
                         onPress={() => onChangeViolationForm((curr) => ({ ...curr, participantId: p.id }))}
                       >
-                        <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
+                        <Text style={[styles.modalBookText, active && styles.modalBookTextActive]} numberOfLines={2}>
                           {p.horseName} (Nài: {p.jockeyName})
                         </Text>
+                        {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
                       </Pressable>
                     );
                   })}
@@ -698,24 +700,36 @@ function SelectorList({ label, items, activeId, getId, getLabel, onSelect }) {
   return (
     <>
       <Text style={styles.modalLabel}>{label}</Text>
-      <View style={styles.modalSelector}>
+      <View style={styles.modalBookList}>
         {(items || []).map((item) => {
           const id = getId(item);
           const active = activeId === id;
           return (
             <Pressable
               key={id}
-              style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
+              style={[styles.modalBookOption, active && styles.modalBookOptionActive]}
               onPress={() => onSelect(id, item)}
             >
-              <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
+              <Text style={[styles.modalBookText, active && styles.modalBookTextActive]} numberOfLines={2}>
                 {getLabel(item)}
               </Text>
+              {active ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
             </Pressable>
           );
         })}
       </View>
     </>
+  );
+}
+
+function ModalHeader({ title, onClose }) {
+  return (
+    <View style={styles.modalHeader}>
+      <Text style={styles.modalTitle}>{title}</Text>
+      <Pressable style={styles.closeButton} hitSlop={10} onPress={onClose}>
+        <Ionicons name="close" size={20} color={colors.darkText} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -753,11 +767,30 @@ const styles = StyleSheet.create({
   flexContent: {
     flex: 1,
   },
+  modalHeader: {
+    position: 'relative',
+    minHeight: 40,
+    justifyContent: 'center',
+    marginBottom: 14,
+    paddingHorizontal: 42,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 13,
+    backgroundColor: colors.darkSurfaceSoft,
+  },
   modalTitle: {
     color: colors.darkText,
     fontSize: 18,
     fontWeight: '900',
-    marginBottom: 16,
     textAlign: 'center',
   },
   modalLabel: {
@@ -887,6 +920,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalSelectorTextActive: {
+    color: colors.primary,
+  },
+  modalBookList: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 14,
+    backgroundColor: colors.darkSurfaceSoft,
+    marginVertical: 6,
+  },
+  modalBookOption: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D2A40',
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+  },
+  modalBookOptionActive: {
+    backgroundColor: '#3A2F1B',
+  },
+  modalBookText: {
+    flex: 1,
+    color: colors.darkTextMuted,
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+  modalBookTextActive: {
     color: colors.primary,
   },
   modalButtonRow: {
