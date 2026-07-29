@@ -359,45 +359,6 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
               </View>
             </View>
 
-            <Text style={styles.modalLabel}>Trạng thái sức khỏe:</Text>
-            <View style={styles.modalSelector}>
-              {['Khỏe mạnh', 'Chấn thương nhẹ', 'Cần theo dõi'].map((status) => {
-                const active = newHorse.healthStatus === status;
-                return (
-                  <Pressable
-                    key={status}
-                    style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                    onPress={() => onChangeNewHorse((curr) => ({ ...curr, healthStatus: status }))}
-                  >
-                    <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                      {status}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.modalLabel}>Trạng thái thi đấu:</Text>
-            <View style={styles.modalSelector}>
-              {[
-                { value: 'can-race', label: 'Có thể thi đấu' },
-                { value: 'cannot-race', label: 'Tạm ngưng' },
-              ].map((item) => {
-                const active = newHorse.racingStatus === item.value;
-                return (
-                  <Pressable
-                    key={item.value}
-                    style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                    onPress={() => onChangeNewHorse((curr) => ({ ...curr, racingStatus: item.value }))}
-                  >
-                    <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
             <ModalButtons cancelText="Hủy" confirmText="Thêm ngựa" onCancel={onClose} onConfirm={onSubmit} />
           </ScrollView>
         </View>
