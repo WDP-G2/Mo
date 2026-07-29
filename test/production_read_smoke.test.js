@@ -111,10 +111,31 @@ async function run() {
   await step('OWNER read endpoints', async () => {
     expectObject(await request('GET', 'owner/dashboard', { token: tokens.owner }), 'owner dashboard');
     expectObject(await request('GET', 'owner/profile', { token: tokens.owner }), 'owner profile');
+    expectObject(await request('GET', 'owner/results', { token: tokens.owner }), 'owner results');
     expectArray(await request('GET', 'owner/horses', { token: tokens.owner }), 'owner horses');
     expectArray(await request('GET', 'owner/race-registrations', { token: tokens.owner }), 'owner race registrations');
     expectArray(await request('GET', 'owner/jockey-invitations', { token: tokens.owner }), 'owner jockey invitations');
-    expectOpenTournamentShape(await request('GET', 'tournaments/owner/open', { token: tokens.owner }), 'owner open tournaments');
+    expectArray(await request('GET', 'users/jockeys/directory', { token: tokens.owner }), 'owner jockey directory');
+    const openTournaments = await request('GET', 'tournaments/owner/open', { token: tokens.owner });
+    expectOpenTournamentShape(openTournaments, 'owner open tournaments');
+    const firstTournament = openTournaments[0];
+    const firstRace = firstTournament?.races?.find((race) =>
+      ['OPEN_REGISTRATION', 'SCHEDULED', 'Đang mở đăng ký', 'Sắp diễn ra'].includes(
+        race.statusCode || race.status,
+      ),
+    );
+    if (firstTournament && firstRace) {
+      const tournamentId = firstTournament.id || firstTournament._id;
+      const raceId = firstRace.id || firstRace._id || firstRace.raceId;
+      const options = await request(
+        'GET',
+        `tournaments/${tournamentId}/races/${raceId}/owner-options`,
+        { token: tokens.owner },
+      );
+      expectObject(options, 'owner race options');
+      expectArray(options.horses, 'owner race option horses');
+      expectArray(options.jockeys, 'owner race option jockeys');
+    }
     expectObject(await request('GET', 'notifications?size=5', { token: tokens.owner }), 'owner notifications');
     expectObject(await request('GET', 'notifications/unread-count', { token: tokens.owner }), 'owner unread notifications');
   });

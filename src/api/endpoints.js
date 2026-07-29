@@ -14,6 +14,9 @@ export const ENDPOINTS = {
   },
   tournaments: {
     list: '/tournaments',
+    byId: (id) => `/tournaments/${id}`,
+    races: (id) => `/tournaments/${id}/races`,
+    ownerRaceOptions: (id, raceId) => `/tournaments/${id}/races/${raceId}/owner-options`,
     ownerOpen: '/tournaments/owner/open',
     ownerRegistrations: '/tournaments/owner/registrations',
     jockeyRegistrations: '/tournaments/jockey/registrations',

@@ -204,6 +204,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [ownerOpenRaces, setOwnerOpenRaces] = useState([]);
   const [ownerInvitations, setOwnerInvitations] = useState([]);
   const [ownerRegistrations, setOwnerRegistrations] = useState([]);
+  const [ownerRaceOptions, setOwnerRaceOptions] = useState({ horses: [], jockeys: [] });
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [activityModalVisible, setActivityModalVisible] = useState(false);
@@ -885,9 +886,25 @@ export default function RoleHomeScreen({ user, onLogout }) {
       if (openTournaments.length > 0) {
         const races = (openTournaments[0].races || []).filter(raceOpenForRegistration);
         const selectedRaceId = races[0]?.id || races[0]?._id || '';
+        const raceOptions = selectedRaceId
+          ? await tournamentService.getOwnerRaceOptions(openTournaments[0].id, selectedRaceId)
+          : { horses: [], jockeys: [] };
+        setOwnerRaceOptions(raceOptions);
+        const availableHorseIds = new Set(
+          (raceOptions.horses || [])
+            .filter((item) => item.available)
+            .map((item) => String(item.id)),
+        );
+        const availableJockeyIds = new Set(
+          (raceOptions.jockeys || [])
+            .filter((item) => item.available)
+            .map((item) => String(item.id)),
+        );
         const raceInvitations = eligibleInvitations.filter(
           (item) =>
             sameOwnerFlowId(item.raceId, selectedRaceId) &&
+            availableHorseIds.has(String(item.horseId)) &&
+            availableJockeyIds.has(String(item.jockeyId)) &&
             !raceHorseLockedByRegistration(registrations, selectedRaceId, item.horseId) &&
             !raceJockeyLockedByRegistration(registrations, selectedRaceId, item.jockeyId),
         );
@@ -900,6 +917,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
           jockeyInvitationId: firstInv ? firstInv.id : '',
         });
       } else {
+        setOwnerRaceOptions({ horses: [], jockeys: [] });
         setTournamentRaces([]);
         setRegisterForm({ tournamentId: '', raceId: '', horseId: '', jockeyInvitationId: '' });
       }
@@ -968,25 +986,71 @@ export default function RoleHomeScreen({ user, onLogout }) {
   }
 
   // Change selected tournament in register form
-  function handleRegisterTournamentChange(tournamentId) {
-    const t = ownerTournaments.find(item => (item.id || item._id) === tournamentId);
-    const races = t ? (t.races || []).filter(raceOpenForRegistration) : [];
-    setTournamentRaces(races);
-    const nextRaceId = races[0]?.id || races[0]?._id || '';
-    const raceInvitations = registerJockeys.filter(
-      (item) =>
-        sameOwnerFlowId(item.raceId, nextRaceId) &&
-        !raceHorseLockedByRegistration(ownerRegistrations, nextRaceId, item.horseId) &&
-        !raceJockeyLockedByRegistration(ownerRegistrations, nextRaceId, item.jockeyId),
-    );
-    const firstInv = raceInvitations[0];
-    setRegisterForm(current => ({
-      ...current,
-      tournamentId,
-      raceId: nextRaceId,
-      horseId: firstInv ? firstInv.horseId : '',
-      jockeyInvitationId: firstInv ? firstInv.id : '',
-    }));
+  async function handleRegisterTournamentChange(tournamentId) {
+    try {
+      const t = ownerTournaments.find(item => (item.id || item._id) === tournamentId);
+      const races = t ? (t.races || []).filter(raceOpenForRegistration) : [];
+      setTournamentRaces(races);
+      const nextRaceId = races[0]?.id || races[0]?._id || '';
+      const raceOptions = nextRaceId
+        ? await tournamentService.getOwnerRaceOptions(tournamentId, nextRaceId)
+        : { horses: [], jockeys: [] };
+      setOwnerRaceOptions(raceOptions);
+      const availableHorseIds = new Set(
+        (raceOptions.horses || []).filter((item) => item.available).map((item) => String(item.id)),
+      );
+      const availableJockeyIds = new Set(
+        (raceOptions.jockeys || []).filter((item) => item.available).map((item) => String(item.id)),
+      );
+      const raceInvitations = registerJockeys.filter(
+        (item) =>
+          sameOwnerFlowId(item.raceId, nextRaceId) &&
+          availableHorseIds.has(String(item.horseId)) &&
+          availableJockeyIds.has(String(item.jockeyId)) &&
+          !raceHorseLockedByRegistration(ownerRegistrations, nextRaceId, item.horseId) &&
+          !raceJockeyLockedByRegistration(ownerRegistrations, nextRaceId, item.jockeyId),
+      );
+      const firstInv = raceInvitations[0];
+      setRegisterForm(current => ({
+        ...current,
+        tournamentId,
+        raceId: nextRaceId,
+        horseId: firstInv ? firstInv.horseId : '',
+        jockeyInvitationId: firstInv ? firstInv.id : '',
+      }));
+    } catch (requestError) {
+      showAlert('Lỗi', requestError.message || 'Không tải được lựa chọn cho giải đấu.');
+    }
+  }
+
+  async function handleRegisterRaceChange(raceId) {
+    try {
+      const raceOptions = await tournamentService.getOwnerRaceOptions(
+        registerForm.tournamentId,
+        raceId,
+      );
+      setOwnerRaceOptions(raceOptions);
+      const availableHorseIds = new Set(
+        (raceOptions.horses || []).filter((item) => item.available).map((item) => String(item.id)),
+      );
+      const availableJockeyIds = new Set(
+        (raceOptions.jockeys || []).filter((item) => item.available).map((item) => String(item.id)),
+      );
+      const firstInv = registerJockeys.find(
+        (item) =>
+          sameOwnerFlowId(item.raceId, raceId) &&
+          availableHorseIds.has(String(item.horseId)) &&
+          availableJockeyIds.has(String(item.jockeyId)),
+      );
+      setRegisterForm((current) => ({
+        ...current,
+        raceId,
+        horseId: firstInv?.horseId || '',
+        jockeyInvitationId: firstInv?.id || '',
+      }));
+    } catch (requestError) {
+      showAlert('Lỗi', requestError.message || 'Không tải được lựa chọn cho cuộc đua.');
+    }
   }
 
   // Submit Registration Handler
@@ -1005,6 +1069,30 @@ export default function RoleHomeScreen({ user, onLogout }) {
       !sameOwnerFlowId(invitation.horseId, registerForm.horseId)
     ) {
       showAlert('Lỗi', 'Lời mời jockey không khớp với ngựa/cuộc đua đã chọn.');
+      return;
+    }
+
+    try {
+      const freshOptions = await tournamentService.getOwnerRaceOptions(
+        registerForm.tournamentId,
+        registerForm.raceId,
+      );
+      const horseOption = (freshOptions.horses || []).find((item) =>
+        sameOwnerFlowId(item.id, registerForm.horseId),
+      );
+      const jockeyOption = (freshOptions.jockeys || []).find((item) =>
+        sameOwnerFlowId(item.id, invitation.jockeyId),
+      );
+      if (!horseOption?.available) {
+        showAlert('Không thể đăng ký', horseOption?.unavailableReason || 'Ngựa không còn khả dụng.');
+        return;
+      }
+      if (!jockeyOption?.available) {
+        showAlert('Không thể đăng ký', jockeyOption?.unavailableReason || 'Jockey không còn khả dụng.');
+        return;
+      }
+    } catch (requestError) {
+      showAlert('Lỗi', requestError.message || 'Không kiểm tra được điều kiện đăng ký.');
       return;
     }
 
@@ -1390,8 +1478,10 @@ export default function RoleHomeScreen({ user, onLogout }) {
             ownerHorses,
             registerJockeys,
             ownerRegistrations,
+            ownerRaceOptions,
             registerForm,
             onChangeTournament: handleRegisterTournamentChange,
+            onChangeRace: handleRegisterRaceChange,
             onChangeRegisterForm: setRegisterForm,
             onClose: () => setRegisterModalVisible(false),
             onSubmit: submitRegistration,

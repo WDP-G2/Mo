@@ -167,6 +167,38 @@ export const tournamentService = {
     return (Array.isArray(list) ? list : []).map(mapTournament).filter(Boolean);
   },
 
+  async getById(id) {
+    return mapTournament(await apiRequest(ENDPOINTS.tournaments.byId(id)));
+  },
+
+  async listRaces(id) {
+    const races = await apiRequest(ENDPOINTS.tournaments.races(id));
+    return (Array.isArray(races) ? races : []).map(mapRace).filter(Boolean);
+  },
+
+  async getOwnerRaceOptions(tournamentId, raceId) {
+    const options = await apiRequest(
+      ENDPOINTS.tournaments.ownerRaceOptions(tournamentId, raceId),
+    );
+    return {
+      tournament: mapTournament(options?.tournament),
+      race: mapRace(options?.race),
+      horses: (Array.isArray(options?.horses) ? options.horses : []).map((item) => ({
+        ...item,
+        id: String(item.id || item._id || ''),
+        available: item.available !== false,
+        unavailableReason: item.unavailableReason || '',
+      })),
+      jockeys: (Array.isArray(options?.jockeys) ? options.jockeys : []).map((item) => ({
+        ...item,
+        id: String(item.id || item.userId || item._id || ''),
+        available: item.available !== false,
+        unavailableReason: item.unavailableReason || '',
+      })),
+      registrations: Array.isArray(options?.registrations) ? options.registrations : [],
+    };
+  },
+
   async listOwnerRegistrations() {
     const list = await apiRequest(ENDPOINTS.tournaments.ownerRegistrations);
     return (Array.isArray(list) ? list : []).map(mapRegistration).filter(Boolean);

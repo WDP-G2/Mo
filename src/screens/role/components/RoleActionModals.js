@@ -552,16 +552,30 @@ function RaceRegistrationModal({
   ownerHorses,
   registerJockeys,
   ownerRegistrations,
+  ownerRaceOptions,
   registerForm,
   onChangeTournament,
+  onChangeRace,
   onChangeRegisterForm,
   onClose,
   onSubmit,
 }) {
+  const availableHorseIds = new Set(
+    (ownerRaceOptions?.horses || [])
+      .filter((item) => item.available)
+      .map((item) => String(item.id)),
+  );
+  const availableJockeyIds = new Set(
+    (ownerRaceOptions?.jockeys || [])
+      .filter((item) => item.available)
+      .map((item) => String(item.id)),
+  );
   const registrationInvitations = uniqueByRaceHorse(
     (registerJockeys || []).filter(
       (j) =>
         (!registerForm.raceId || sameId(j.raceId, registerForm.raceId)) &&
+        availableHorseIds.has(String(j.horseId)) &&
+        availableJockeyIds.has(String(j.jockeyId)) &&
         !raceHorseLockedByRegistration(ownerRegistrations, registerForm.raceId, j.horseId) &&
         !raceJockeyLockedByRegistration(ownerRegistrations, registerForm.raceId, j.jockeyId),
     ),
@@ -593,23 +607,7 @@ function RaceRegistrationModal({
               activeId={registerForm.raceId}
               getId={(r) => r.id || r._id}
               getLabel={(r) => `Race R${r.raceNumber} · ${r.name}`}
-              onSelect={(raceId) => {
-                const raceInvitations = uniqueByRaceHorse(
-                  (registerJockeys || []).filter(
-                    (item) =>
-                      sameId(item.raceId, raceId) &&
-                      !raceHorseLockedByRegistration(ownerRegistrations, raceId, item.horseId) &&
-                      !raceJockeyLockedByRegistration(ownerRegistrations, raceId, item.jockeyId),
-                  ),
-                );
-                const firstInv = raceInvitations[0];
-                onChangeRegisterForm((curr) => ({
-                  ...curr,
-                  raceId,
-                  horseId: firstInv ? firstInv.horseId : '',
-                  jockeyInvitationId: firstInv ? firstInv.id : '',
-                }));
-              }}
+              onSelect={onChangeRace}
             />
             <SelectorList
               label="Chọn ngựa của bạn:"
@@ -648,7 +646,24 @@ function RaceRegistrationModal({
               <EmptyText text="Race này chưa có lời mời hợp lệ hoặc ngựa đã được đăng ký." />
             ) : null}
 
-            <ModalButtons cancelText="Hủy" confirmText="Đăng ký ngay" onCancel={onClose} onConfirm={onSubmit} />
+            {(ownerRaceOptions?.horses || []).filter((item) => !item.available).slice(0, 2).map((item) => (
+              <Text key={`horse-reason-${item.id}`} style={styles.optionWarning}>
+                {item.name || 'Ngựa'}: {item.unavailableReason}
+              </Text>
+            ))}
+            {(ownerRaceOptions?.jockeys || []).filter((item) => !item.available).slice(0, 2).map((item) => (
+              <Text key={`jockey-reason-${item.id}`} style={styles.optionWarning}>
+                {item.fullName || item.name || 'Jockey'}: {item.unavailableReason}
+              </Text>
+            ))}
+
+            <ModalButtons
+              cancelText="Hủy"
+              confirmText="Đăng ký ngay"
+              disabled={!registrationInvitations.length}
+              onCancel={onClose}
+              onConfirm={onSubmit}
+            />
           </ScrollView>
         </View>
       </View>
@@ -1272,6 +1287,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 18,
     padding: 10,
+  },
+  optionWarning: {
+    marginTop: 6,
+    color: '#FCD34D',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 16,
   },
   spacedInput: {
     marginBottom: 8,
