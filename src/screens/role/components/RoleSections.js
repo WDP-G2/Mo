@@ -50,6 +50,7 @@ export function Overview({
   onOpenInviteModal,
   onOpenRegisterModal,
   onOpenBetModal,
+  onStatPress,
 }) {
   const title =
     role === 'OWNER'
@@ -65,7 +66,7 @@ export function Overview({
       <Text style={styles.sectionTitle}>{title}</Text>
       <View style={styles.metricGrid}>
         {stats.map((item) => (
-          <Metric key={item.label} item={item} />
+          <Metric key={item.label} item={item} onPress={() => onStatPress?.(item.id)} />
         ))}
       </View>
 
@@ -197,8 +198,12 @@ export function Schedule({
   onOpenBetModal,
   onOpenRefereeRaceModal,
   onOpenViolationModal,
+  onParticipantCheckIn,
+  onUpdateGate,
+  onRandomizeGates,
 }) {
   const [selectedScheduleItem, setSelectedScheduleItem] = useState(null);
+  const [selectedRaceDetail, setSelectedRaceDetail] = useState(null);
 
   if (role === 'OWNER') {
     return (
@@ -258,12 +263,14 @@ export function Schedule({
       <Section title="Race được phân công">
         {(data.races || []).filter((item) => matchesQuery(item, query)).map((item) => (
           <View key={item.id} style={styles.invitationItem}>
-            <ListItem
-              icon="flag-outline"
-              title={item.name}
-              meta={`${item.tournamentName || 'Giải đấu'} · ${item.checkedInCount}/${item.participantCount} đã check-in`}
-              badge={item.status}
-            />
+            <Pressable onPress={() => setSelectedRaceDetail(item)}>
+              <ListItem
+                icon="flag-outline"
+                title={item.name}
+                meta={`${item.tournamentName || 'Giải đấu'} · ${item.checkedInCount}/${item.participantCount} đã check-in`}
+                badge={item.status}
+              />
+            </Pressable>
             {item.canStart ? (
               <View style={styles.invitationActions}>
                 <Pressable style={styles.primaryAction} onPress={() => onStartRace(item.id)}>
@@ -286,6 +293,18 @@ export function Schedule({
           </View>
         ))}
         {!data.races?.length ? <EmptyText text="Chưa có race được phân công." /> : null}
+
+        <RefereeRaceDetailModal
+          race={selectedRaceDetail}
+          data={data}
+          onClose={() => setSelectedRaceDetail(null)}
+          onParticipantCheckIn={onParticipantCheckIn}
+          onOpenViolationModal={onOpenViolationModal}
+          onStartRace={onStartRace}
+          onOpenRefereeRaceModal={onOpenRefereeRaceModal}
+          onUpdateGate={onUpdateGate}
+          onRandomizeGates={onRandomizeGates}
+        />
       </Section>
     );
   }
@@ -431,8 +450,15 @@ export function Tasks({
   onInvitationResponse,
   onParticipantCheckIn,
   onRefereeInvitationResponse,
+  onOpenViolationModal,
+  onStartRace,
+  onOpenRefereeRaceModal,
+  onUpdateGate,
+  onRandomizeGates,
 }) {
   const [selectedInvitation, setSelectedInvitation] = useState(null);
+  const [selectedViolation, setSelectedViolation] = useState(null);
+  const [selectedRaceDetail, setSelectedRaceDetail] = useState(null);
 
   if (role === 'OWNER') {
     return (
@@ -545,48 +571,31 @@ export function Tasks({
           {!data.invitations?.length ? <EmptyText text="Chưa có lời mời trọng tài." /> : null}
         </Section>
 
-        <Section title="Thù lao trọng tài">
-          {(data.payments || []).filter((payment) => matchesQuery(payment, query)).map((payment) => (
-            <ListItem
-              key={payment.raceId}
-              icon="cash-outline"
-              title={payment.raceName}
-              meta={payment.tournamentName}
-              badge={`${payment.amount.toLocaleString('vi-VN')}đ · ${payment.status}`}
-            />
+        <Section title="Cuộc đua">
+          {(data.races || []).filter((item) => matchesQuery(item, query)).map((item) => (
+            <Pressable key={item.id} style={styles.invitationItem} onPress={() => setSelectedRaceDetail(item)}>
+              <ListItem
+                icon="flag-outline"
+                title={item.name}
+                meta={`${item.tournamentName || 'Giải đấu'} · ${item.checkedInCount}/${item.participantCount} đã check-in`}
+                badge={item.status}
+              />
+            </Pressable>
           ))}
-          {!data.payments?.length ? <EmptyText text="Chưa có dữ liệu thù lao." /> : null}
+          {!data.races?.length ? <EmptyText text="Chưa có cuộc đua được phân công." /> : null}
         </Section>
 
-        <Section title="Check-in participant">
-          {(data.participants || []).filter((item) => matchesQuery(item, query)).slice(0, 12).map((item) => (
-            <View key={item.id} style={styles.invitationItem}>
-              <ListItem
-                icon="checkmark-circle-outline"
-                title={item.horseName}
-                meta={`${item.raceName} · ${item.jockeyName || 'Jockey'} · Cổng ${item.gateNumber || '-'}`}
-                badge={item.checkInStatus}
-              />
-              {item.canCheckIn ? (
-                <View style={styles.invitationActions}>
-                  <Pressable
-                    style={styles.secondaryAction}
-                    onPress={() => onParticipantCheckIn(item.raceId, item.id, 'ABSENT')}
-                  >
-                    <Text style={styles.secondaryActionText}>Vắng mặt</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.primaryAction}
-                    onPress={() => onParticipantCheckIn(item.raceId, item.id, 'CHECKED_IN')}
-                  >
-                    <Text style={styles.primaryActionText}>Check-in</Text>
-                  </Pressable>
-                </View>
-              ) : null}
-            </View>
-          ))}
-          {!data.participants?.length ? <EmptyText text="Chưa có participant cần check-in." /> : null}
-        </Section>
+        <RefereeRaceDetailModal
+          race={selectedRaceDetail}
+          data={data}
+          onClose={() => setSelectedRaceDetail(null)}
+          onParticipantCheckIn={onParticipantCheckIn}
+          onOpenViolationModal={onOpenViolationModal}
+          onStartRace={onStartRace}
+          onOpenRefereeRaceModal={onOpenRefereeRaceModal}
+          onUpdateGate={onUpdateGate}
+          onRandomizeGates={onRandomizeGates}
+        />
       </View>
     );
   }
@@ -754,6 +763,411 @@ function JockeyDetailModal({ item, title, onClose, onInvitationResponse, onRespo
                 </View>
               </View>
             ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+function ViolationDetailModal({ item, onClose }) {
+  if (!item) return null;
+
+  return (
+    <Modal visible={Boolean(item)} transparent={true} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.detailBackdrop}>
+        <View style={styles.detailModal}>
+          <View style={styles.detailHeader}>
+            <View style={styles.detailTitleBlock}>
+              <Text style={styles.detailEyebrow}>Chi tiết vi phạm</Text>
+              <Text style={styles.detailTitle} numberOfLines={1}>
+                {item.horse || item.horseName || 'Biên bản vi phạm'}
+              </Text>
+            </View>
+            <Pressable style={styles.detailClose} onPress={onClose}>
+              <Ionicons name="close" size={20} color={colors.darkText} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={styles.detailScroll} contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
+            <DetailRow icon="flag-outline" label="Cuộc đua" value={item.raceName || 'Chưa cập nhật'} />
+            <DetailRow icon="person-outline" label="Jockey vi phạm" value={item.jockey || item.jockeyName || 'Chưa cập nhật'} />
+            <DetailRow icon="footsteps-outline" label="Ngựa vi phạm" value={item.horse || item.horseName || 'Chưa cập nhật'} />
+            {item.gateNumber !== undefined && item.gateNumber !== null ? (
+              <DetailRow icon="grid-outline" label="Cổng số" value={String(item.gateNumber)} />
+            ) : item.horseNo !== undefined && item.horseNo !== null ? (
+              <DetailRow icon="grid-outline" label="Cổng số" value={String(item.horseNo)} />
+            ) : null}
+            <DetailRow icon="warning-outline" label="Loại vi phạm" value={item.type || 'Chưa cập nhật'} />
+            <DetailRow icon="alert-circle-outline" label="Mức độ nghiêm trọng" value={item.severity || 'Chưa cập nhật'} />
+            <DetailRow icon="ban-outline" label="Hình phạt đề xuất" value={item.penalty || 'Không đề xuất'} />
+            <DetailRow icon="document-text-outline" label="Mô tả chi tiết" value={item.description || 'Không có mô tả'} />
+            {item.occurredAt ? (
+              <DetailRow
+                icon="time-outline"
+                label="Thời gian lập"
+                value={new Date(item.occurredAt).toLocaleString('vi-VN')}
+              />
+            ) : item.timestamp ? (
+              <DetailRow
+                icon="time-outline"
+                label="Thời gian lập"
+                value={new Date(item.timestamp).toLocaleString('vi-VN')}
+              />
+            ) : null}
+
+            {item.evidence && item.evidence.length > 0 ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.detailSectionTitle}>Ảnh bằng chứng:</Text>
+                {item.evidence.map((ev, index) => (
+                  <Image
+                    key={index}
+                    source={{ uri: ev.url }}
+                    style={{ width: '100%', height: 160, borderRadius: 10, resizeMode: 'cover', marginTop: 6 }}
+                  />
+                ))}
+              </View>
+            ) : item.imageFile?.uri ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.detailSectionTitle}>Ảnh bằng chứng:</Text>
+                <Image
+                  source={{ uri: item.imageFile.uri }}
+                  style={{ width: '100%', height: 160, borderRadius: 10, resizeMode: 'cover', marginTop: 6 }}
+                />
+              </View>
+            ) : null}
+
+            <View style={{ marginTop: 12 }}>
+              <Pressable style={styles.primaryAction} onPress={onClose}>
+                <Text style={styles.primaryActionText}>Đóng</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+
+function GateInput({ value, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value ?? ''));
+
+  if (editing) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <TextInput
+          style={{
+            borderWidth: 1,
+            borderColor: colors.primary,
+            borderRadius: 6,
+            color: colors.darkText,
+            fontSize: 12,
+            fontWeight: '900',
+            paddingHorizontal: 8,
+            paddingVertical: 3,
+            width: 44,
+            textAlign: 'center',
+            backgroundColor: 'rgba(212,160,23,0.08)',
+          }}
+          keyboardType="numeric"
+          value={draft}
+          onChangeText={setDraft}
+          autoFocus
+          maxLength={2}
+        />
+        <Pressable
+          style={{ backgroundColor: 'rgba(16,185,129,0.15)', borderRadius: 6, padding: 4 }}
+          onPress={() => {
+            const n = parseInt(draft, 10);
+            if (!isNaN(n) && n > 0) { onChange(n); }
+            setEditing(false);
+          }}
+        >
+          <Ionicons name="checkmark" size={13} color="#10B981" />
+        </Pressable>
+        <Pressable
+          style={{ backgroundColor: 'rgba(239,68,68,0.12)', borderRadius: 6, padding: 4 }}
+          onPress={() => { setDraft(String(value ?? '')); setEditing(false); }}
+        >
+          <Ionicons name="close" size={13} color="#EF4444" />
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: colors.darkBorder,
+      }}
+      onPress={() => { setDraft(String(value ?? '')); setEditing(true); }}
+    >
+      <Text style={{ color: colors.darkText, fontSize: 12, fontWeight: '900', minWidth: 16, textAlign: 'center' }}>
+        {value ?? '?'}
+      </Text>
+      <Ionicons name="create-outline" size={11} color={colors.darkTextMuted} />
+    </Pressable>
+  );
+}
+
+function RefereeRaceDetailModal({ race, data, onClose, onParticipantCheckIn, onOpenViolationModal, onStartRace, onOpenRefereeRaceModal, onUpdateGate, onRandomizeGates }) {
+  if (!race) return null;
+
+  const payment = (data.payments || []).find((p) => String(p.raceId) === String(race.id));
+  const participants = (data.participants || []).filter((p) => String(p.raceId) === String(race.id));
+  const violations = (data.violations || []).filter((v) => String(v.raceId) === String(race.id));
+
+  const isScheduled = race.statusCode === 'SCHEDULED' || race.canStart;
+  const isOngoing = race.statusCode === 'ONGOING' || race.status === 'Đang chạy' || race.status === 'Đang diễn ra';
+  const checkedIn = participants.filter((p) => p.checkInStatus === 'CHECKED_IN').length;
+  const absent = participants.filter((p) => p.checkInStatus === 'ABSENT').length;
+  const pending = participants.filter((p) => p.checkInStatus !== 'CHECKED_IN' && p.checkInStatus !== 'ABSENT').length;
+
+  return (
+    <Modal visible={Boolean(race)} transparent={true} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.detailBackdrop}>
+        <View style={styles.detailModal}>
+          <View style={styles.detailHeader}>
+            <View style={styles.detailTitleBlock}>
+              <Text style={styles.detailEyebrow}>Cuộc đua được phân công</Text>
+              <Text style={styles.detailTitle} numberOfLines={1}>
+                {race.name}
+              </Text>
+            </View>
+            <Pressable style={styles.detailClose} onPress={onClose}>
+              <Ionicons name="close" size={20} color={colors.darkText} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={styles.detailScroll} contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
+            <DetailRow icon="trophy-outline" label="Giải đấu" value={race.tournamentName || 'Chưa cập nhật'} />
+            <DetailRow icon="location-outline" label="Địa điểm" value={race.location || 'Chưa cập nhật'} />
+            <DetailRow icon="information-circle-outline" label="Trạng thái" value={race.status || 'Chưa cập nhật'} />
+
+            {/* Action buttons */}
+            {(isScheduled || isOngoing) && (
+              <View style={{ flexDirection: 'row', gap: 8, marginVertical: 12 }}>
+                {isScheduled && onStartRace ? (
+                  <Pressable
+                    style={[styles.primaryAction, { flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center' }]}
+                    onPress={() => { onClose(); onStartRace(race.id); }}
+                  >
+                    <Ionicons name="flag-outline" size={14} color="#1D1705" />
+                    <Text style={styles.primaryActionText}>Bắt đầu cuộc đua</Text>
+                  </Pressable>
+                ) : null}
+                {isOngoing && onOpenRefereeRaceModal ? (
+                  <Pressable
+                    style={[styles.primaryAction, { flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center' }]}
+                    onPress={() => { onClose(); onOpenRefereeRaceModal(race); }}
+                  >
+                    <Ionicons name="play-circle-outline" size={14} color="#1D1705" />
+                    <Text style={styles.primaryActionText}>Mô phỏng & Chốt</Text>
+                  </Pressable>
+                ) : null}
+                {onOpenViolationModal ? (
+                  <Pressable
+                    style={[styles.secondaryAction, { flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center' }]}
+                    onPress={() => { onClose(); onOpenViolationModal(race); }}
+                  >
+                    <Ionicons name="warning-outline" size={14} color={colors.darkText} />
+                    <Text style={styles.secondaryActionText}>Báo vi phạm</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            )}
+
+            {/* Thù lao trọng tài */}
+            <Text style={styles.detailSectionTitle}>Thù lao của trọng tài</Text>
+            {payment ? (
+              <DetailRow
+                icon="cash-outline"
+                label="Số tiền"
+                value={`${(payment.amount || 0).toLocaleString('vi-VN')}đ · ${payment.status}`}
+              />
+            ) : (
+              <EmptyText text="Chưa có thông tin thù lao cho cuộc đua này." />
+            )}
+
+            {/* Check-in & Gate Assignment */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, marginBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.detailSectionTitle, { marginBottom: 0 }]}>
+                  Danh sách ngựa ({participants.length})
+                </Text>
+                {onRandomizeGates ? (
+                  <Pressable
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      backgroundColor: 'rgba(212, 160, 23, 0.15)',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                    }}
+                    onPress={() => onRandomizeGates(race.id)}
+                  >
+                    <Ionicons name="shuffle" size={12} color={colors.primary} />
+                    <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900' }}>Ngẫu nhiên</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <View style={{ backgroundColor: 'rgba(16,185,129,0.12)', borderRadius: 5, paddingHorizontal: 7, paddingVertical: 3 }}>
+                  <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '900' }}>✓ {checkedIn}</Text>
+                </View>
+                {absent > 0 && (
+                  <View style={{ backgroundColor: 'rgba(239,68,68,0.12)', borderRadius: 5, paddingHorizontal: 7, paddingVertical: 3 }}>
+                    <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '900' }}>✗ {absent}</Text>
+                  </View>
+                )}
+                {pending > 0 && (
+                  <View style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 5, paddingHorizontal: 7, paddingVertical: 3 }}>
+                    <Text style={{ color: colors.darkTextMuted, fontSize: 10, fontWeight: '900' }}>⏳ {pending}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            {participants.map((item) => (
+              <View key={item.id} style={[styles.detailListItem, { alignItems: 'flex-start', paddingVertical: 10 }]}>
+                {/* Gate badge + name */}
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    {/* Gate number - editable */}
+                    {onUpdateGate ? (
+                      <GateInput
+                        value={item.gateNumber}
+                        onChange={(gate) => onUpdateGate(item.raceId, item.id, gate)}
+                      />
+                    ) : (
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ color: colors.darkText, fontSize: 12, fontWeight: '900' }}>
+                          {item.gateNumber ?? '?'}
+                        </Text>
+                      </View>
+                    )}
+                    <Text style={[styles.detailItemTitle, { flex: 1, marginBottom: 0 }]} numberOfLines={1}>
+                      {item.horseName}
+                    </Text>
+                  </View>
+                  <Text style={styles.detailItemMeta}>
+                    Nài: {item.jockeyName || 'Chưa rõ'} · {item.ownerName ? `Chủ: ${item.ownerName}` : ''}
+                  </Text>
+                </View>
+                {/* Check-in controls */}
+                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                  {item.canCheckIn && onParticipantCheckIn ? (
+                    <View style={{ flexDirection: 'row', gap: 5 }}>
+                      <Pressable
+                        style={[styles.detailCheckInBtn, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}
+                        onPress={() => onParticipantCheckIn(item.raceId, item.id, 'ABSENT')}
+                      >
+                        <Ionicons name="close" size={13} color="#EF4444" />
+                      </Pressable>
+                      <Pressable
+                        style={[styles.detailCheckInBtn, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}
+                        onPress={() => onParticipantCheckIn(item.raceId, item.id, 'CHECKED_IN')}
+                      >
+                        <Ionicons name="checkmark" size={13} color="#10B981" />
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <View style={[
+                      styles.detailStatusBadge,
+                      item.checkInStatus === 'CHECKED_IN' ? { backgroundColor: 'rgba(16, 185, 129, 0.15)' } : { backgroundColor: 'rgba(239, 68, 68, 0.15)' }
+                    ]}>
+                      <Text style={[
+                        styles.detailStatusBadgeText,
+                        item.checkInStatus === 'CHECKED_IN' ? { color: '#10B981' } : { color: '#EF4444' }
+                      ]}>
+                        {item.checkInStatus === 'CHECKED_IN' ? '✓ Check-in' : item.checkInStatus === 'ABSENT' ? '✗ Vắng' : '⏳ Chờ'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ))}
+            {participants.length === 0 ? (
+              <EmptyText text="Không có ngựa đua nào tham gia cuộc đua này." />
+            ) : null}
+
+            {/* Biên bản vi phạm */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, marginBottom: 8 }}>
+              <Text style={[styles.detailSectionTitle, { marginBottom: 0 }]}>
+                Biên bản vi phạm ({violations.length})
+              </Text>
+              {onOpenViolationModal ? (
+                <Pressable
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    backgroundColor: 'rgba(212, 160, 23, 0.15)',
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                  }}
+                  onPress={() => {
+                    onClose();
+                    onOpenViolationModal(race);
+                  }}
+                >
+                  <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '900' }}>Báo vi phạm</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {violations.map((item) => (
+              <View key={item.id} style={styles.detailListItemCol}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.detailItemTitle}>
+                    {item.horse || item.horseName || 'Ngựa'} (Nài: {item.jockey || item.jockeyName || 'Chưa rõ'})
+                  </Text>
+                  <View style={[styles.detailStatusBadge, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                    <Text style={[styles.detailStatusBadgeText, { color: '#F59E0B' }]}>
+                      {item.severity}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.detailItemMeta} numberOfLines={1}>Lỗi: {item.type}</Text>
+                {item.penalty ? (
+                  <Text style={[styles.detailItemMeta, { color: colors.primary }]}>Hình phạt: {item.penalty}</Text>
+                ) : null}
+                {item.description ? (
+                  <Text style={[styles.detailItemMeta, { marginTop: 4, fontStyle: 'italic' }]}>Chi tiết: {item.description}</Text>
+                ) : null}
+                {item.evidence && item.evidence.length > 0 ? (
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+                    {item.evidence.map((ev, index) => (
+                      <Image
+                        key={index}
+                        source={{ uri: ev.url }}
+                        style={{ width: 80, height: 60, borderRadius: 6, resizeMode: 'cover' }}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ))}
+            {violations.length === 0 ? (
+              <EmptyText text="Chưa ghi nhận lỗi vi phạm nào trong cuộc đua này." />
+            ) : null}
+
+            <View style={{ marginTop: 24, marginBottom: 12 }}>
+              <Pressable style={styles.secondaryAction} onPress={onClose}>
+                <Text style={styles.secondaryActionText}>Đóng</Text>
+              </Pressable>
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -1255,5 +1669,46 @@ const styles = StyleSheet.create({
   },
   approvalBadgeTextApproved: {
     color: '#2DD4BF',
+  },
+  detailListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D2A40',
+  },
+  detailListItemCol: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D2A40',
+    gap: 4,
+  },
+  detailItemTitle: {
+    color: colors.darkText,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  detailItemMeta: {
+    color: colors.darkTextMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  detailCheckInBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailStatusBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  detailStatusBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
   },
 });

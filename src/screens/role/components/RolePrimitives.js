@@ -18,13 +18,20 @@ export function ProfileField({ label, value, onChangeText, keyboardType = 'defau
   );
 }
 
-export function Metric({ item }) {
+export function Metric({ item, onPress }) {
   return (
-    <View style={styles.metric}>
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      style={({ pressed }) => [
+        styles.metric,
+        onPress && pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
+      ]}
+    >
       <Ionicons name={item.icon} size={22} color={colors.primary} />
       <Text style={styles.metricValue}>{item.value}</Text>
       <Text style={styles.metricLabel}>{item.label}</Text>
-    </View>
+    </Pressable>
   );
 }
 

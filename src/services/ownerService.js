@@ -60,7 +60,7 @@ function mapInvitation(item) {
   return {
     id: String(item.id || item._id || ''),
     jockeyId: item.jockeyId || '',
-    jockeyName: item.jockeyName || item.jockey || '',
+    jockeyName: item.jockeyUsername || item.jockeyName || item.jockey || '',
     horseId: item.horseId || '',
     horseName: item.horseName || item.horse || '',
     raceId: item.raceId || '',

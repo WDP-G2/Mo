@@ -34,6 +34,10 @@ export const ENDPOINTS = {
     markRead: (id) => `/notifications/${id}/read`,
     markAllRead: '/notifications/read-all',
   },
+  systemSettings: {
+    violationTypes: '/system-settings/violation-types',
+    violationRules: '/system-settings/violation-rules',
+  },
   invitations: {
     list: '/invitations',
     me: '/invitations/me',
@@ -59,6 +63,7 @@ export const ENDPOINTS = {
       `/referee/races/${raceId}/participants/${participantId}/gate`,
     participantCheckIn: (raceId, participantId) =>
       `/referee/races/${raceId}/participants/${participantId}/check-in`,
+    randomizeGates: (raceId) => `/referee/races/${raceId}/randomize-gates`,
     simulation: (raceId) => `/referee/races/${raceId}/simulation`,
     confirmSimulation: (raceId) => `/referee/races/${raceId}/simulation/confirm`,
     finalizeResults: (raceId) => `/referee/races/${raceId}/results/finalize`,

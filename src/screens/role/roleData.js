@@ -64,16 +64,17 @@ export async function loadDataForRole(role) {
   }
 
   if (role === 'REFEREE') {
-    const [dashboard, races, invitations, payments, news] = await Promise.all([
+    const [dashboard, races, invitations, payments, news, violations] = await Promise.all([
       refereeService.getDashboard(),
       refereeService.listRaces(),
       refereeService.listInvitations(),
       refereeService.listPayments(),
       newsService.list(),
+      refereeService.listViolations().catch(() => []),
     ]);
     const participants = await refereeService.listParticipantsForRaces(races);
 
-    return { dashboard, races, participants, invitations, payments, news };
+    return { dashboard, races, participants, invitations, payments, news, violations };
   }
 
   if (role === 'SPECTATOR') {
@@ -101,48 +102,52 @@ export async function loadDataForRole(role) {
 export function buildStats(role, data) {
   if (role === 'OWNER') {
     return [
-      { icon: 'footsteps-outline', label: 'Ngựa của tôi', value: data.horses?.length || 0 },
-      { icon: 'trophy-outline', label: 'Giải mở', value: data.openTournaments?.length || 0 },
-      { icon: 'reader-outline', label: 'Đăng ký', value: data.dashboard?.registrationCount || data.registrations?.length || 0 },
-      { icon: 'mail-outline', label: 'Lời mời jockey', value: data.invitations?.length || 0 },
+      { id: 'my_horses', icon: 'footsteps-outline', label: 'Ngựa của tôi', value: data.horses?.length || 0 },
+      { id: 'open_tournaments', icon: 'trophy-outline', label: 'Giải mở', value: data.openTournaments?.length || 0 },
+      { id: 'registrations', icon: 'reader-outline', label: 'Đăng ký', value: data.dashboard?.registrationCount || data.registrations?.length || 0 },
+      { id: 'jockey_invitations', icon: 'mail-outline', label: 'Lời mời jockey', value: data.invitations?.length || 0 },
     ];
   }
 
   if (role === 'JOCKEY') {
     return [
-      { icon: 'calendar-outline', label: 'Race đã chạy', value: data.dashboard?.raceCount || data.races?.length || 0 },
+      { id: 'races', icon: 'calendar-outline', label: 'Race đã chạy', value: data.dashboard?.raceCount || data.races?.length || 0 },
       {
+        id: 'pending_invitations',
         icon: 'mail-unread-outline',
         label: 'Lời mời chờ',
-        value: (data.invitations || []).filter((item) => item.status === 'Chờ xử lý').length,
+        value: (data.invitations || []).filter((item) => item.status === 'Chờ xử lý' || item.status === 'PENDING').length,
       },
-      { icon: 'ribbon-outline', label: 'Số trận thắng', value: data.dashboard?.wins || 0 },
-      { icon: 'cash-outline', label: 'Thù lao', value: (data.dashboard?.totalJockeyPayout || 0).toLocaleString('vi-VN') },
+      { id: 'wins', icon: 'ribbon-outline', label: 'Số trận thắng', value: data.dashboard?.wins || 0 },
+      { id: 'payout', icon: 'cash-outline', label: 'Thù lao', value: (data.dashboard?.totalJockeyPayout || 0).toLocaleString('vi-VN') },
     ];
   }
 
   if (role === 'REFEREE') {
     return [
-      { icon: 'flag-outline', label: 'Race được phân', value: data.dashboard?.assignedRaceCount || 0 },
-      { icon: 'time-outline', label: 'Chờ check-in', value: data.dashboard?.pendingCheckInCount || 0 },
-      { icon: 'checkmark-circle-outline', label: 'Đã check-in', value: data.dashboard?.checkedInCount || 0 },
+      { id: 'assigned_races', icon: 'flag-outline', label: 'Race được phân', value: data.dashboard?.assignedRaceCount || 0 },
+      { id: 'pending_checkin', icon: 'time-outline', label: 'Chờ check-in', value: data.dashboard?.pendingCheckInCount || 0 },
+      { id: 'checked_in', icon: 'checkmark-circle-outline', label: 'Đã check-in', value: data.dashboard?.checkedInCount || 0 },
       {
+        id: 'referee_invitations',
         icon: 'mail-unread-outline',
         label: 'Lời mời chờ',
-        value: (data.invitations || []).filter((item) => item.status === 'Chờ xử lý').length,
+        value: (data.invitations || []).filter((item) => item.status === 'Chờ xử lý' || item.status === 'PENDING').length,
       },
     ];
   }
 
   return [
     {
+      id: 'wallet_balance',
       icon: 'wallet-outline',
       label: 'Số dư ví',
       value: (data.dashboard?.wallet?.availableBalance || 0).toLocaleString('vi-VN'),
     },
-    { icon: 'trophy-outline', label: 'Giải mở', value: data.dashboard?.businessSummary?.openTournamentCount || data.tournaments?.length || 0 },
-    { icon: 'cash-outline', label: 'Kèo mở', value: data.markets?.length || data.dashboard?.businessSummary?.openBetMarketCount || 0 },
+    { id: 'spectator_tournaments', icon: 'trophy-outline', label: 'Giải mở', value: data.dashboard?.businessSummary?.openTournamentCount || data.tournaments?.length || 0 },
+    { id: 'open_bets', icon: 'cash-outline', label: 'Kèo mở', value: data.markets?.length || data.dashboard?.businessSummary?.openBetMarketCount || 0 },
     {
+      id: 'total_bets',
       icon: 'ticket-outline',
       label: 'Tổng cược',
       value: (data.dashboard?.businessSummary?.totalBetStake || 0).toLocaleString('vi-VN'),

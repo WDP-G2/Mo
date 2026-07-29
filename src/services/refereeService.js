@@ -145,6 +145,12 @@ export const refereeService = {
     });
   },
 
+  randomizeGates(raceId) {
+    return apiRequest(ENDPOINTS.referee.randomizeGates(raceId), {
+      method: 'POST',
+    });
+  },
+
   generateSimulation(raceId) {
     return apiRequest(ENDPOINTS.referee.simulation(raceId), { method: 'POST' });
   },

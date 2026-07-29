@@ -21,11 +21,12 @@ import { notificationService } from '../../services/notificationService';
 import { ownerService } from '../../services/ownerService';
 import { refereeService } from '../../services/refereeService';
 import { spectatorService } from '../../services/spectatorService';
+import { systemSettingsService } from '../../services/systemSettingsService';
 import { tournamentService } from '../../services/tournamentService';
 import { userService } from '../../services/userService';
 import { getRoleLabel } from '../../utils/role';
 import { RoleActionModals } from './components/RoleActionModals';
-import { SearchBox } from './components/RolePrimitives';
+import { SearchBox, ListItem, EmptyText } from './components/RolePrimitives';
 import { Account, Horses, Overview, Schedule, Tasks } from './components/RoleSections';
 import { buildStats, displayName, initials, loadDataForRole, roleOrSpectator } from './roleData';
 
@@ -65,6 +66,10 @@ const NOTIFICATION_METADATA_LABELS = {
   ownerName: 'Owner',
   tournamentName: 'Giải đấu',
   raceName: 'Cuộc đua',
+  violationType: 'Loại vi phạm',
+  severity: 'Mức độ nghiêm trọng',
+  penalty: 'Hình phạt đề xuất',
+  description: 'Mô tả lỗi vi phạm',
 };
 
 const NOTIFICATION_TYPE_LABELS = {
@@ -196,8 +201,14 @@ export default function RoleHomeScreen({ user, onLogout }) {
   // Referee Violation States
   const [violationModalVisible, setViolationModalVisible] = useState(false);
   const [selectedViolationRace, setSelectedViolationRace] = useState(null);
-  const [violationForm, setViolationForm] = useState({ participantId: '', gateNumber: '', type: 'Cản trở đối thủ', severity: 'Phạt nhẹ', description: '', penalty: '' });
+  const [violationForm, setViolationForm] = useState({ participantId: '', gateNumber: '', type: 'Cản trở đối thủ', severity: 'Phạt nhẹ', description: '', penalty: '', imageFile: null });
   const [violationParticipants, setViolationParticipants] = useState([]);
+  const [violationTypeOptions, setViolationTypeOptions] = useState([]);
+  const [violationSeverityOptions, setViolationSeverityOptions] = useState([]);
+
+  // Stats Details Modals States
+  const [jockeyStatsModalVisible, setJockeyStatsModalVisible] = useState(false);
+  const [spectatorTournamentsModalVisible, setSpectatorTournamentsModalVisible] = useState(false);
 
 
   function refreshData() {
@@ -270,7 +281,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
     [activityLog, serverNotifications],
   );
 
-  function recordActivity(icon, title, detail) {
+  function recordActivity(icon, title, detail, metadata) {
     const createdAt = new Date();
     setActivityLog((current) => [
       {
@@ -281,6 +292,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
         time: createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
         read: false,
         source: 'local',
+        metadata,
       },
       ...current,
     ].slice(0, 30));
@@ -306,7 +318,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   }
 
   async function markAllNotificationsRead() {
-    setActivityLog([]);
+    setActivityLog((current) => current.map((item) => ({ ...item, read: true })));
     setServerNotifications((current) => current.map((item) => ({ ...item, read: true })));
     try {
       await notificationService.markAllRead();
@@ -440,6 +452,60 @@ export default function RoleHomeScreen({ user, onLogout }) {
       );
     } catch (requestError) {
       setError(requestError.message || 'Không check-in được participant.');
+    }
+  }
+
+  async function handleUpdateGate(raceId, participantId, gateNumber) {
+    try {
+      const updated = await refereeService.updateParticipantGate(raceId, participantId, gateNumber);
+      setData((current) => ({
+        ...current,
+        participants: (current.participants || []).map((item) =>
+          item.id === participantId
+            ? { ...item, gateNumber: updated?.gateNumber ?? gateNumber }
+            : item,
+        ),
+      }));
+    } catch (requestError) {
+      showAlert('Lỗi', requestError.message || 'Không cập nhật được cổng xuất phát.');
+    }
+  }
+
+  async function handleRandomizeGates(raceId) {
+    try {
+      setLoading(true);
+      const raceParticipants = (data.participants || []).filter((p) => String(p.raceId) === String(raceId));
+      if (raceParticipants.length === 0) {
+        showAlert('Lỗi', 'Không có ngựa nào tham gia cuộc đua này.');
+        return;
+      }
+
+      const gates = Array.from({ length: raceParticipants.length }, (_, i) => i + 1);
+      for (let i = gates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [gates[i], gates[j]] = [gates[j], gates[i]];
+      }
+
+      const updatedList = [];
+      for (let i = 0; i < raceParticipants.length; i++) {
+        const p = raceParticipants[i];
+        const gate = gates[i];
+        const updated = await refereeService.updateParticipantGate(raceId, p.id, gate);
+        updatedList.push({ id: p.id, gateNumber: updated?.gateNumber ?? gate });
+      }
+
+      setData((current) => ({
+        ...current,
+        participants: (current.participants || []).map((item) => {
+          const match = updatedList.find((up) => String(up.id) === String(item.id));
+          return match ? { ...item, gateNumber: match.gateNumber } : item;
+        }),
+      }));
+      showAlert('Thành công', 'Đã chia chuồng ngẫu nhiên cho tất cả ngựa.');
+    } catch (requestError) {
+      showAlert('Lỗi', requestError.message || 'Không chia chuồng ngẫu nhiên được.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -638,6 +704,8 @@ export default function RoleHomeScreen({ user, onLogout }) {
           }
         });
       });
+      const openTournaments = (tournaments || []).filter(tournamentOpenForRegistration);
+      setOwnerTournaments(openTournaments);
       setOwnerOpenRaces(openRaces);
 
       setInviteForm({
@@ -706,7 +774,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
         ownerService.listJockeyInvitations(),
       ]);
       const openTournaments = (tournaments || []).filter(tournamentOpenForRegistration);
-      const acceptedInvitations = (invitations || []).filter((item) => item.status === 'Đã chấp nhận');
+      const acceptedInvitations = (invitations || []).filter((item) => item.status === 'Đã chấp nhận' || item.status === 'ACCEPTED');
       setOwnerTournaments(openTournaments);
       setOwnerHorses(horses);
       setRegisterJockeys(acceptedInvitations);
@@ -714,13 +782,14 @@ export default function RoleHomeScreen({ user, onLogout }) {
       if (openTournaments.length > 0) {
         const races = (openTournaments[0].races || []).filter(raceOpenForRegistration);
         const selectedRaceId = races[0]?.id || races[0]?._id || '';
-        const raceInvitation = acceptedInvitations.find((item) => String(item.raceId) === String(selectedRaceId));
+        const raceInvitations = acceptedInvitations.filter((item) => String(item.raceId) === String(selectedRaceId));
+        const firstInv = raceInvitations[0];
         setTournamentRaces(races);
         setRegisterForm({
           tournamentId: openTournaments[0].id || openTournaments[0]._id,
           raceId: selectedRaceId,
-          horseId: horses[0]?.id || '',
-          jockeyInvitationId: raceInvitation?.id || '',
+          horseId: firstInv ? firstInv.horseId : '',
+          jockeyInvitationId: firstInv ? firstInv.id : '',
         });
       } else {
         setTournamentRaces([]);
@@ -734,18 +803,76 @@ export default function RoleHomeScreen({ user, onLogout }) {
     }
   }
 
+  function handleStatPress(statId) {
+    switch (statId) {
+      // OWNER stats
+      case 'my_horses':
+        setActiveTab('horses');
+        break;
+      case 'open_tournaments':
+        openRegisterModal();
+        break;
+      case 'registrations':
+        setActiveTab('schedule');
+        break;
+      case 'jockey_invitations':
+        setActiveTab('tasks');
+        break;
+
+      // JOCKEY stats
+      case 'races':
+        setActiveTab('schedule');
+        break;
+      case 'pending_invitations':
+        setActiveTab('tasks');
+        break;
+      case 'wins':
+      case 'payout':
+        setJockeyStatsModalVisible(true);
+        break;
+
+      // REFEREE stats
+      case 'assigned_races':
+        setActiveTab('schedule');
+        break;
+      case 'pending_checkin':
+      case 'checked_in':
+      case 'referee_invitations':
+        setActiveTab('tasks');
+        break;
+
+      // SPECTATOR stats
+      case 'wallet_balance':
+        setDepositModalVisible(true);
+        break;
+      case 'spectator_tournaments':
+        setSpectatorTournamentsModalVisible(true);
+        break;
+      case 'open_bets':
+        setActiveTab('schedule');
+        break;
+      case 'total_bets':
+        setActiveTab('tasks');
+        break;
+      default:
+        break;
+    }
+  }
+
   // Change selected tournament in register form
   function handleRegisterTournamentChange(tournamentId) {
     const t = ownerTournaments.find(item => (item.id || item._id) === tournamentId);
     const races = t ? (t.races || []).filter(raceOpenForRegistration) : [];
     setTournamentRaces(races);
     const nextRaceId = races[0]?.id || races[0]?._id || '';
-    const raceInvitation = registerJockeys.find((item) => String(item.raceId) === String(nextRaceId));
+    const raceInvitations = registerJockeys.filter((item) => String(item.raceId) === String(nextRaceId));
+    const firstInv = raceInvitations[0];
     setRegisterForm(current => ({
       ...current,
       tournamentId,
       raceId: nextRaceId,
-      jockeyInvitationId: raceInvitation?.id || '',
+      horseId: firstInv ? firstInv.horseId : '',
+      jockeyInvitationId: firstInv ? firstInv.id : '',
     }));
   }
 
@@ -849,15 +976,24 @@ export default function RoleHomeScreen({ user, onLogout }) {
     setSelectedViolationRace(race);
     try {
       setLoading(true);
-      const list = await refereeService.listParticipants(race);
+      const [list, types, severities] = await Promise.all([
+        refereeService.listParticipants(race),
+        systemSettingsService.listViolationTypes(),
+        systemSettingsService.listViolationSeverities(),
+      ]);
+      const safeTypes = types?.length ? types : [{ id: 'OTHER', label: 'Khác' }];
+      const safeSeverities = severities?.length ? severities : [{ id: 'MINOR', label: 'Phạt nhẹ' }];
       setViolationParticipants(list || []);
+      setViolationTypeOptions(safeTypes);
+      setViolationSeverityOptions(safeSeverities);
       setViolationForm({
         participantId: list[0]?.id || '',
         gateNumber: list[0]?.gateNumber ? String(list[0].gateNumber) : '1',
-        type: 'Cản trở đối thủ',
-        severity: 'Phạt nhẹ',
+        type: safeTypes[0]?.label || 'Khác',
+        severity: safeSeverities.find((item) => item.label === 'Phạt nhẹ')?.label || safeSeverities[0]?.label || 'Phạt nhẹ',
         description: '',
-        penalty: ''
+        penalty: '',
+        imageFile: null
       });
       setViolationModalVisible(true);
     } catch (err) {
@@ -877,14 +1013,42 @@ export default function RoleHomeScreen({ user, onLogout }) {
     try {
       setLoading(true);
       const selectedPart = violationParticipants.find(p => p.id === violationForm.participantId);
-      await refereeService.createViolation(selectedViolationRace.id, {
+      const created = await refereeService.createViolation(selectedViolationRace.id, {
         ...violationForm,
         gateNumber: selectedPart?.gateNumber || violationForm.gateNumber
       });
-      recordActivity('warning-outline', 'Đã lập biên bản vi phạm', selectedPart?.horseName || selectedViolationRace.name || 'Race');
-      showAlert('Thành công', 'Đã lập biên bản vi phạm thành công.');
-      setViolationModalVisible(false);
-      refreshData();
+      recordActivity(
+        'warning-outline',
+        'Đã lập biên bản vi phạm',
+        selectedPart?.horseName || selectedViolationRace.name || 'Race',
+        {
+          raceName: selectedViolationRace.name,
+          jockeyName: selectedPart?.jockeyName || 'Chưa rõ',
+          horseName: selectedPart?.horseName || 'Chưa rõ',
+          violationType: violationForm.type,
+          severity: violationForm.severity,
+          penalty: violationForm.penalty || 'Không đề xuất',
+          description: violationForm.description || 'Không có mô tả',
+        }
+      );
+      // Add newly created violation to data immediately for real-time display
+      if (created) {
+        setData((current) => ({
+          ...current,
+          violations: [created, ...(current.violations || [])],
+        }));
+      }
+      // Reset form but KEEP MODAL OPEN so referee can report more violations
+      setViolationForm({
+        participantId: violationParticipants[0]?.id || '',
+        gateNumber: violationParticipants[0]?.gateNumber ? String(violationParticipants[0].gateNumber) : '1',
+        type: violationTypeOptions[0]?.label || 'Khác',
+        severity: violationSeverityOptions.find((item) => item.label === 'Phạt nhẹ')?.label || violationSeverityOptions[0]?.label || 'Phạt nhẹ',
+        description: '',
+        penalty: '',
+        imageFile: null,
+      });
+      showAlert('Thành công', 'Đã lập biên bản vi phạm. Bạn có thể tiếp tục báo thêm hoặc đóng cửa sổ.');
     } catch (err) {
       showAlert('Lỗi', err.message || 'Không lập được biên bản vi phạm.');
     } finally {
@@ -942,6 +1106,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
                   setSelectedOption(market.options[0] || null);
                   setBetModalVisible(true);
                 }}
+                onStatPress={handleStatPress}
               />
             ) : null}
             {activeTab === 'schedule' ? (
@@ -958,6 +1123,9 @@ export default function RoleHomeScreen({ user, onLogout }) {
                 }}
                 onOpenRefereeRaceModal={openRefereeRaceModal}
                 onOpenViolationModal={openViolationModal}
+                onParticipantCheckIn={handleParticipantCheckIn}
+                onUpdateGate={handleUpdateGate}
+                onRandomizeGates={handleRandomizeGates}
               />
             ) : null}
             {activeTab === 'horses' ? (
@@ -981,6 +1149,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
                 onInvitationResponse={handleInvitationResponse}
                 onParticipantCheckIn={handleParticipantCheckIn}
                 onRefereeInvitationResponse={handleRefereeInvitationResponse}
+                onOpenViolationModal={openViolationModal}
+                onStartRace={handleStartRace}
+                onOpenRefereeRaceModal={openRefereeRaceModal}
+                onUpdateGate={handleUpdateGate}
+                onRandomizeGates={handleRandomizeGates}
               />
             ) : null}
             {activeTab === 'account' ? (
@@ -1042,6 +1215,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
           }}
           invite={{
             visible: inviteModalVisible,
+            ownerTournaments,
             ownerHorses,
             ownerOpenRaces,
             allJockeys,
@@ -1083,6 +1257,8 @@ export default function RoleHomeScreen({ user, onLogout }) {
             selectedViolationRace,
             violationParticipants,
             violationForm,
+            violationTypeOptions,
+            violationSeverityOptions,
             onChangeViolationForm: setViolationForm,
             onClose: () => setViolationModalVisible(false),
             onSubmit: submitViolation,
@@ -1098,6 +1274,18 @@ export default function RoleHomeScreen({ user, onLogout }) {
           onClose={() => setActivityModalVisible(false)}
           onPressItem={markNotificationRead}
           onRespondInvitation={role === 'JOCKEY' ? respondToNotificationInvitation : null}
+        />
+
+        <JockeyStatsModal
+          visible={jockeyStatsModalVisible}
+          onClose={() => setJockeyStatsModalVisible(false)}
+          prizes={data.prizes}
+        />
+
+        <SpectatorTournamentsModal
+          visible={spectatorTournamentsModalVisible}
+          onClose={() => setSpectatorTournamentsModalVisible(false)}
+          tournaments={data.tournaments}
         />
       </View>
     </SafeAreaView>
@@ -1165,7 +1353,7 @@ function ActivityLogModal({ visible, items, loading, error, onClear, onClose, on
                 items.map((item) => (
                   <Pressable
                     key={`${item.source || 'item'}-${item.id}`}
-                    style={[styles.activityItem, !item.read && styles.activityItemUnread]}
+                    style={[styles.activityItem, !item.read && styles.activityItemUnread, item.read && { opacity: 0.55 }]}
                     onPress={() => openItem(item)}
                   >
                     <View style={styles.activityIcon}>
@@ -1319,6 +1507,75 @@ function NotificationInfoRow({ label, value }) {
   );
 }
 
+function JockeyStatsModal({ visible, onClose, prizes = [] }) {
+  return (
+    <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.activityBackdrop}>
+        <View style={styles.activityModal}>
+          <View style={styles.activityHeader}>
+            <View>
+              <Text style={styles.activityEyebrow}>Thống kê Jockey</Text>
+              <Text style={styles.activityTitle}>Lịch sử giải thưởng</Text>
+            </View>
+            <Pressable style={styles.activityClose} onPress={onClose}>
+              <Ionicons name="close" size={20} color={colors.darkText} />
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.activityListContent} style={styles.activityList} showsVerticalScrollIndicator={false}>
+            {prizes.map((item) => (
+              <View key={item.id} style={styles.activityItem}>
+                <ListItem
+                  icon="ribbon-outline"
+                  title={`${item.raceName} · Hạng ${item.position || '-'}`}
+                  meta={`${item.tournamentName} · ${item.horseName}`}
+                  badge={`${item.prizeAmount?.toLocaleString('vi-VN')}đ`}
+                />
+              </View>
+            ))}
+            {prizes.length === 0 ? (
+              <EmptyText text="Chưa có thông tin giải thưởng hoặc chiến thắng nào." />
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function SpectatorTournamentsModal({ visible, onClose, tournaments = [] }) {
+  return (
+    <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.activityBackdrop}>
+        <View style={styles.activityModal}>
+          <View style={styles.activityHeader}>
+            <View>
+              <Text style={styles.activityEyebrow}>Giải đấu</Text>
+              <Text style={styles.activityTitle}>Tất cả giải đấu</Text>
+            </View>
+            <Pressable style={styles.activityClose} onPress={onClose}>
+              <Ionicons name="close" size={20} color={colors.darkText} />
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.activityListContent} style={styles.activityList} showsVerticalScrollIndicator={false}>
+            {tournaments.map((item) => (
+              <View key={item.id} style={styles.activityItem}>
+                <ListItem
+                  icon="trophy-outline"
+                  title={item.name}
+                  meta={`${item.location || 'Địa điểm chưa xác định'} · ${item.raceCount || 0} race`}
+                  badge={item.dateLabel || 'Đang diễn ra'}
+                />
+              </View>
+            ))}
+            {tournaments.length === 0 ? (
+              <EmptyText text="Chưa có giải đấu nào đang mở." />
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

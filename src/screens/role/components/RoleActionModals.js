@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../constants/theme';
 import { EmptyText } from './RolePrimitives';
@@ -378,6 +378,7 @@ function HorseModal({ visible, newHorse, onChangeNewHorse, onClose, onSubmit }) 
 
 function JockeyInviteModal({
   visible,
+  ownerTournaments,
   ownerHorses,
   ownerOpenRaces,
   allJockeys,
@@ -396,16 +397,29 @@ function JockeyInviteModal({
 
           <ScrollView keyboardShouldPersistTaps="handled">
             <SelectorList
-              label="Chọn ngựa của bạn:"
-              items={ownerHorses}
-              activeId={inviteForm.horseId}
-              getId={(h) => h.id}
-              getLabel={(h) => h.name}
-              onSelect={(id) => onChangeInviteForm((curr) => ({ ...curr, horseId: id }))}
+              label="Chọn giải đấu:"
+              items={ownerTournaments}
+              activeId={inviteForm.tournamentId}
+              getId={(t) => t.id || t._id}
+              getLabel={(t) => t.name}
+              onSelect={(tournamentId) => {
+                const filteredRaces = (ownerOpenRaces || []).filter(
+                  (r) => String(r.tournamentId) === String(tournamentId)
+                );
+                const firstRace = filteredRaces[0];
+                onChangeInviteForm((curr) => ({
+                  ...curr,
+                  tournamentId,
+                  raceId: firstRace ? firstRace.id : '',
+                  remunerationAmount: firstRace?.entryFee ? String(firstRace.entryFee) : curr.remunerationAmount,
+                }));
+              }}
             />
             <SelectorList
               label="Chọn cuộc đua:"
-              items={ownerOpenRaces}
+              items={(ownerOpenRaces || []).filter(
+                (r) => !inviteForm.tournamentId || String(r.tournamentId) === String(inviteForm.tournamentId)
+              )}
               activeId={inviteForm.raceId}
               getId={(r) => r.id}
               getLabel={(r) => r.name}
@@ -413,10 +427,18 @@ function JockeyInviteModal({
                 onChangeInviteForm((curr) => ({
                   ...curr,
                   raceId: id,
-                  tournamentId: race.tournamentId || '',
+                  tournamentId: race.tournamentId || curr.tournamentId,
                   remunerationAmount: race.entryFee ? String(race.entryFee) : curr.remunerationAmount,
                 }))
               }
+            />
+            <SelectorList
+              label="Chọn ngựa của bạn:"
+              items={ownerHorses}
+              activeId={inviteForm.horseId}
+              getId={(h) => h.id}
+              getLabel={(h) => h.name}
+              onSelect={(id) => onChangeInviteForm((curr) => ({ ...curr, horseId: id }))}
             />
             <SelectorList
               label="Chọn Jockey:"
@@ -495,27 +517,45 @@ function RaceRegistrationModal({
               getId={(r) => r.id || r._id}
               getLabel={(r) => `Race R${r.raceNumber} · ${r.name}`}
               onSelect={(raceId) => {
-                const raceInvitation = (registerJockeys || []).find((item) => String(item.raceId) === String(raceId));
+                const raceInvitations = (registerJockeys || []).filter((item) => String(item.raceId) === String(raceId));
+                const firstInv = raceInvitations[0];
                 onChangeRegisterForm((curr) => ({
                   ...curr,
                   raceId,
-                  jockeyInvitationId: raceInvitation?.id || '',
+                  horseId: firstInv ? firstInv.horseId : '',
+                  jockeyInvitationId: firstInv ? firstInv.id : '',
                 }));
               }}
             />
             <SelectorList
               label="Chọn ngựa của bạn:"
-              items={ownerHorses}
+              items={(ownerHorses || []).filter((h) => {
+                const validHorseIds = (registerJockeys || [])
+                  .filter((j) => !registerForm.raceId || String(j.raceId) === String(registerForm.raceId))
+                  .map((j) => String(j.horseId));
+                return validHorseIds.includes(String(h.id));
+              })}
               activeId={registerForm.horseId}
               getId={(h) => h.id}
               getLabel={(h) => h.name}
-              onSelect={(id) => onChangeRegisterForm((curr) => ({ ...curr, horseId: id }))}
+              onSelect={(id) => {
+                const matchingInv = (registerJockeys || []).find(
+                  (j) => String(j.raceId) === String(registerForm.raceId) && String(j.horseId) === String(id)
+                );
+                onChangeRegisterForm((curr) => ({
+                  ...curr,
+                  horseId: id,
+                  jockeyInvitationId: matchingInv ? matchingInv.id : '',
+                }));
+              }}
             />
 
             <SelectorList
               label="Chọn lời mời Jockey đã chấp nhận:"
               items={(registerJockeys || []).filter(
-                (j) => !registerForm.raceId || String(j.raceId) === String(registerForm.raceId),
+                (j) =>
+                  (!registerForm.raceId || String(j.raceId) === String(registerForm.raceId)) &&
+                  (!registerForm.horseId || String(j.horseId) === String(registerForm.horseId))
               )}
               activeId={registerForm.jockeyInvitationId}
               getId={(j) => j.id}
@@ -541,6 +581,136 @@ function RaceRegistrationModal({
   );
 }
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const TRACK_WIDTH = SCREEN_WIDTH - 80; // padding inside modal
+const HORSE_EMOJIS = ['🐴', '🏇', '🐎', '🦄', '🐴', '🏇'];
+const LANE_COLORS = ['rgba(212,160,23,0.18)', 'rgba(59,130,246,0.12)', 'rgba(16,185,129,0.12)', 'rgba(239,68,68,0.12)', 'rgba(168,85,247,0.12)', 'rgba(249,115,22,0.12)'];
+const LANE_ACCENT = ['#D4A017', '#3B82F6', '#10B981', '#EF4444', '#A855F7', '#F97316'];
+
+function HorseRaceTrack({ participants, animating, animDone }) {
+  const progRefs = useRef(participants.map(() => new Animated.Value(0)));
+
+  useEffect(() => {
+    // Reset
+    progRefs.current.forEach((a) => a.setValue(0));
+    if (!animating || !participants.length) return;
+
+    // Sort participants by rank to know finish order
+    const sorted = [...participants].sort((a, b) => (a.rank || 99) - (b.rank || 99));
+    const maxTime = Math.max(...participants.map((p) => p.finishTimeMillis || 5000), 5000);
+
+    const anims = participants.map((p, i) => {
+      const duration = Math.max(1200, Math.min(4000, ((p.finishTimeMillis || maxTime) / maxTime) * 3800));
+      return Animated.timing(progRefs.current[i], {
+        toValue: 1,
+        duration: duration,
+        useNativeDriver: false,
+      });
+    });
+
+    Animated.stagger(0, anims).start();
+  }, [animating, participants]);
+
+  if (!participants.length) return null;
+
+  const sortedByRank = [...participants].sort((a, b) => (a.rank || 99) - (b.rank || 99));
+  const winner = sortedByRank[0];
+
+  return (
+    <View style={{ marginVertical: 8 }}>
+      {/* Track header */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+        <Text style={{ color: colors.darkTextMuted, fontSize: 10, fontWeight: '700' }}>CỔNG XUẤT PHÁT</Text>
+        <Text style={{ color: colors.darkTextMuted, fontSize: 10, fontWeight: '700' }}>ĐÍCH</Text>
+      </View>
+
+      {/* Race lanes */}
+      {participants.map((p, i) => {
+        const accent = LANE_ACCENT[i % LANE_ACCENT.length];
+        const laneColor = LANE_COLORS[i % LANE_COLORS.length];
+        const emoji = HORSE_EMOJIS[i % HORSE_EMOJIS.length];
+        const isWinner = animDone && p.rank === 1;
+
+        return (
+          <View key={p.participantId} style={{ marginBottom: 8 }}>
+            {/* Lane label */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3, gap: 6 }}>
+              <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{p.gateNumber ?? (i + 1)}</Text>
+              </View>
+              <Text style={{ color: colors.darkText, fontSize: 11, fontWeight: '800', flex: 1 }} numberOfLines={1}>
+                {p.horseName}
+              </Text>
+              {animDone && p.rank ? (
+                <Text style={{ color: p.rank === 1 ? colors.primary : colors.darkTextMuted, fontSize: 11, fontWeight: '900' }}>
+                  {p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : `#${p.rank}`}
+                </Text>
+              ) : null}
+            </View>
+
+            {/* Lane track */}
+            <View style={{
+              height: 36,
+              backgroundColor: laneColor,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.05)',
+              overflow: 'hidden',
+              position: 'relative',
+            }}>
+              {/* Finish line */}
+              <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 3, backgroundColor: 'rgba(255,255,255,0.25)' }} />
+              {/* Dashed lane markers */}
+              {[0.25, 0.5, 0.75].map((pos) => (
+                <View key={pos} style={{
+                  position: 'absolute',
+                  left: `${pos * 100}%`,
+                  top: 14,
+                  width: 1,
+                  height: 8,
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                }} />
+              ))}
+              {/* Horse animated */}
+              <Animated.View style={{
+                position: 'absolute',
+                top: 4,
+                left: progRefs.current[i]?.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, TRACK_WIDTH - 70],
+                }) || 0,
+                alignItems: 'center',
+              }}>
+                <Text style={{ fontSize: 22, lineHeight: 28 }}>{emoji}</Text>
+              </Animated.View>
+            </View>
+          </View>
+        );
+      })}
+
+      {/* Winner announcement */}
+      {animDone && winner && (
+        <View style={{
+          marginTop: 12,
+          padding: 12,
+          backgroundColor: 'rgba(212,160,23,0.15)',
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(212,160,23,0.3)',
+          alignItems: 'center',
+        }}>
+          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '900' }}>
+            🏆 Chiến thắng: {winner.horseName}
+          </Text>
+          <Text style={{ color: colors.darkTextMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+            Nài: {winner.jockeyName} · {((winner.finishTimeMillis || 0) / 1000).toFixed(2)}s
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function RefereeRaceModal({
   visible,
   selectedRefereeRace,
@@ -552,6 +722,33 @@ function RefereeRaceModal({
   onConfirmSimulation,
   onFinalizeResults,
 }) {
+  const [animating, setAnimating] = useState(false);
+  const [animDone, setAnimDone] = useState(false);
+  const [showAnimation, setShowAnimation] = useState(false);
+
+  useEffect(() => {
+    if (!simulationResult) {
+      setAnimating(false);
+      setAnimDone(false);
+      setShowAnimation(false);
+    }
+  }, [simulationResult]);
+
+  function startAnimation() {
+    setShowAnimation(true);
+    setAnimDone(false);
+    setAnimating(true);
+    const participants = simulationResult?.participants || [];
+    const maxTime = Math.max(...participants.map((p) => p.finishTimeMillis || 5000), 5000);
+    const animDuration = Math.min(4500, Math.max(2000, (maxTime / 5000) * 4000));
+    setTimeout(() => {
+      setAnimating(false);
+      setAnimDone(true);
+    }, animDuration + 500);
+  }
+
+  const participants = simulationResult?.participants || [];
+
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
@@ -560,31 +757,87 @@ function RefereeRaceModal({
             <View style={styles.flexContent}>
               <ModalHeader title="Mô phỏng cuộc đua" onClose={onClose} />
               <Text style={styles.modalLabel}>Race: {selectedRefereeRace.name}</Text>
-              <Text style={styles.modalLabel}>Giải đấu: {selectedRefereeRace.tournamentName}</Text>
 
               {simulationLoading ? (
                 <View style={[styles.centerState, styles.simulationState]}>
-                  <ActivityIndicator color={colors.primary} />
-                  <Text style={styles.centerText}>Đang mô phỏng diễn biến...</Text>
+                  <ActivityIndicator color={colors.primary} size="large" />
+                  <Text style={styles.centerText}>Đang tính toán mô phỏng...</Text>
+                  <Text style={{ color: colors.darkTextMuted, fontSize: 11, marginTop: 4, fontWeight: '600' }}>
+                    Phân tích lịch sử và may mắn của ngựa
+                  </Text>
                 </View>
               ) : simulationResult ? (
-                <ScrollView style={styles.resultList} keyboardShouldPersistTaps="handled">
-                  <Text style={styles.modalLabel}>Bảng kết quả dự kiến:</Text>
-                  {(simulationResult.participants || [])
-                    .sort((a, b) => a.rank - b.rank)
+                <ScrollView style={styles.resultList} showsVerticalScrollIndicator={false}>
+                  {/* Animated Race Track */}
+                  {showAnimation ? (
+                    <View>
+                      <Text style={[styles.modalLabel, { marginBottom: 6 }]}>
+                        {animDone ? '🏁 Kết quả mô phỏng:' : '🏇 Đang diễn ra...'}
+                      </Text>
+                      <HorseRaceTrack
+                        participants={participants}
+                        animating={animating}
+                        animDone={animDone}
+                      />
+                    </View>
+                  ) : (
+                    <View>
+                      {/* Preview before animation */}
+                      <Pressable
+                        style={{
+                          backgroundColor: 'rgba(212,160,23,0.12)',
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: 'rgba(212,160,23,0.3)',
+                          padding: 16,
+                          alignItems: 'center',
+                          marginBottom: 12,
+                        }}
+                        onPress={startAnimation}
+                      >
+                        <Text style={{ fontSize: 36 }}>🏇</Text>
+                        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '900', marginTop: 6 }}>
+                          Xem mô phỏng trực quan
+                        </Text>
+                        <Text style={{ color: colors.darkTextMuted, fontSize: 11, fontWeight: '600', marginTop: 2 }}>
+                          Nhấn để xem {participants.length} ngựa đua
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
+
+                  {/* Results Table */}
+                  <Text style={[styles.modalLabel, { marginTop: animDone ? 12 : 0 }]}>Bảng kết quả:</Text>
+                  {[...participants]
+                    .sort((a, b) => (a.rank || 99) - (b.rank || 99))
                     .map((p) => (
                       <View key={p.participantId} style={styles.participantRow}>
-                        <Text style={styles.participantText}>{p.horseName} (Nài: {p.jockeyName})</Text>
-                        <Text style={styles.participantRank}>
-                          Hạng {p.rank} ({(p.finishTimeMillis / 1000).toFixed(2)}s)
+                        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: p.rank === 1 ? 'rgba(212,160,23,0.2)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '900', color: p.rank === 1 ? colors.primary : colors.darkTextMuted }}>
+                            {p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : p.rank}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.participantText} numberOfLines={1}>
+                            {p.horseName}
+                          </Text>
+                          <Text style={{ color: colors.darkTextMuted, fontSize: 10, fontWeight: '600' }}>
+                            Nài: {p.jockeyName || '-'} · Cổng: {p.gateNumber ?? '-'}
+                          </Text>
+                        </View>
+                        <Text style={[styles.participantRank, { color: p.rank === 1 ? colors.primary : colors.darkTextMuted }]}>
+                          {((p.finishTimeMillis || 0) / 1000).toFixed(2)}s
                         </Text>
                       </View>
                     ))}
                 </ScrollView>
               ) : (
                 <View style={styles.emptySimulation}>
-                  <Ionicons name="play-circle-outline" size={48} color={colors.darkTextMuted} />
-                  <Text style={styles.centerText}>Chưa chạy mô phỏng cuộc đua</Text>
+                  <Text style={{ fontSize: 52 }}>🏟️</Text>
+                  <Text style={[styles.centerText, { marginTop: 8 }]}>Chưa chạy mô phỏng</Text>
+                  <Text style={{ color: colors.darkTextMuted, fontSize: 11, fontWeight: '600', marginTop: 4, textAlign: 'center' }}>
+                    Nhấn "Chạy mô phỏng" để tính kết quả dự kiến dựa trên lịch sử và hệ số ngẫu nhiên
+                  </Text>
                 </View>
               )}
 
@@ -594,17 +847,22 @@ function RefereeRaceModal({
                 </Pressable>
                 {!simulationResult && (
                   <Pressable style={styles.primaryAction} onPress={onRunSimulation}>
-                    <Text style={styles.primaryActionText}>Chạy mô phỏng</Text>
+                    <Text style={styles.primaryActionText}>🎲 Chạy mô phỏng</Text>
                   </Pressable>
                 )}
-                {simulationResult && !simulationConfirmed && (
+                {simulationResult && !animDone && !showAnimation && (
+                  <Pressable style={styles.primaryAction} onPress={startAnimation}>
+                    <Text style={styles.primaryActionText}>🏇 Chiếu cuộc đua</Text>
+                  </Pressable>
+                )}
+                {simulationResult && animDone && !simulationConfirmed && (
                   <Pressable style={styles.primaryAction} onPress={onConfirmSimulation}>
-                    <Text style={styles.primaryActionText}>Xác nhận kết quả</Text>
+                    <Text style={styles.primaryActionText}>✓ Xác nhận kết quả</Text>
                   </Pressable>
                 )}
                 {simulationConfirmed && (
                   <Pressable style={styles.primaryAction} onPress={onFinalizeResults}>
-                    <Text style={styles.primaryActionText}>Chốt kết quả</Text>
+                    <Text style={styles.primaryActionText}>🏆 Chốt kết quả</Text>
                   </Pressable>
                 )}
               </View>
@@ -621,14 +879,39 @@ function ViolationModal({
   selectedViolationRace,
   violationParticipants,
   violationForm,
+  violationTypeOptions = [],
+  violationSeverityOptions = [],
   onChangeViolationForm,
   onClose,
   onSubmit,
 }) {
+  async function pickEvidenceImage() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const asset = result.assets[0];
+    onChangeViolationForm((curr) => ({
+      ...curr,
+      imageFile: {
+        uri: asset.uri,
+        name: asset.fileName || `violation-${Date.now()}.jpg`,
+        type: asset.mimeType || 'image/jpeg',
+      },
+    }));
+  }
+
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, styles.tallModal]}>
           {selectedViolationRace && (
             <View style={styles.flexContent}>
               <ModalHeader title="Lập biên bản vi phạm" onClose={onClose} />
@@ -647,18 +930,23 @@ function ViolationModal({
 
                 <SelectorList
                   label="Loại vi phạm:"
-                  items={['Cản trở đối thủ', 'Lấn làn', 'Xuất phát sớm', 'Khác']}
+                  items={violationTypeOptions}
                   activeId={violationForm.type}
-                  getId={(item) => item}
-                  getLabel={(item) => item}
+                  getId={(item) => item.label}
+                  getLabel={(item) => item.label}
                   onSelect={(type) => onChangeViolationForm((curr) => ({ ...curr, type }))}
                 />
                 <SelectorList
                   label="Mức độ nghiêm trọng:"
-                  items={['Phạt nhẹ', 'Phạt cảnh cáo', 'Nghiêm trọng']}
+                  items={violationSeverityOptions}
                   activeId={violationForm.severity}
-                  getId={(item) => item}
-                  getLabel={(item) => item}
+                  getId={(item) => item.label}
+                  getLabel={(item) => {
+                    if (item.resultAction === 'TIME_PENALTY' && item.timePenaltyMillis > 0) {
+                      return `${item.label} (+${Math.round(item.timePenaltyMillis / 1000)}s)`;
+                    }
+                    return item.label;
+                  }}
                   onSelect={(severity) => onChangeViolationForm((curr) => ({ ...curr, severity }))}
                 />
 
@@ -681,7 +969,24 @@ function ViolationModal({
                   onChangeText={(val) => onChangeViolationForm((curr) => ({ ...curr, description: val }))}
                 />
 
-                <ModalButtons cancelText="Hủy" confirmText="Lập biên bản" onCancel={onClose} onConfirm={onSubmit} />
+                <Text style={styles.modalLabel}>Bằng chứng hình ảnh:</Text>
+                <Pressable style={[styles.imagePickerButton, { marginBottom: 12 }]} onPress={pickEvidenceImage}>
+                  <Ionicons name="camera-outline" size={20} color={colors.primary} />
+                  <Text style={styles.imagePickerText}>
+                    {violationForm.imageFile ? 'Đổi ảnh bằng chứng' : 'Chụp/Chọn ảnh bằng chứng'}
+                  </Text>
+                </Pressable>
+
+                {violationForm.imageFile?.uri ? (
+                  <View style={{ marginBottom: 16, alignItems: 'center' }}>
+                    <Image
+                      source={{ uri: violationForm.imageFile.uri }}
+                      style={{ width: '100%', height: 160, borderRadius: 10, resizeMode: 'cover' }}
+                    />
+                  </View>
+                ) : null}
+
+                <ModalButtons cancelText="Hoàn tất" confirmText="Lập biên bản" onCancel={onClose} onConfirm={onSubmit} />
               </ScrollView>
             </View>
           )}
