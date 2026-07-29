@@ -36,7 +36,10 @@ import {
   sameOwnerFlowId,
   uniqueAcceptedRaceHorseInvitations,
 } from '../../utils/ownerFlow.mjs';
-import { applyParticipantCheckIn } from '../../utils/refereeFlow.mjs';
+import {
+  applyParticipantCheckIn,
+  simulationResultFromDraft,
+} from '../../utils/refereeFlow.mjs';
 import { RoleActionModals } from './components/RoleActionModals';
 import { SearchBox, ListItem, EmptyText } from './components/RolePrimitives';
 import {
@@ -1167,13 +1170,25 @@ export default function RoleHomeScreen({ user, onLogout }) {
   }
 
   // Open Referee Simulation Modal
-  function openRefereeRaceModal(race) {
+  async function openRefereeRaceModal(race) {
     setSelectedRefereeRace(race);
     setSimulationResult(null);
     setSimulationDraft(null);
     setSimulationConfirmed(false);
-    setSimulationLoading(false);
+    setSimulationLoading(true);
     setRefereeRaceModalVisible(true);
+    try {
+      const draft = await refereeService.getResultDraft(race.id);
+      if (draft?.simulationRunId) {
+        setSimulationDraft(draft);
+        setSimulationResult(simulationResultFromDraft(draft));
+        setSimulationConfirmed(true);
+      }
+    } catch (requestError) {
+      showAlert('Lỗi', requestError.message || 'Không tải lại được kết quả mô phỏng.');
+    } finally {
+      setSimulationLoading(false);
+    }
   }
 
   // Run Race Simulation Handler
@@ -1264,7 +1279,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
       'Kết quả sau khi công bố sẽ trở thành kết quả chính thức và không thể chỉnh sửa. Bạn có chắc chắn tiếp tục?',
       [
         { text: 'Kiểm tra lại' },
-        { text: 'Xác nhận & công bố', onPress: publishRaceResults },
+        { text: 'Chốt & công bố', onPress: publishRaceResults },
       ],
     );
   }
@@ -1315,11 +1330,13 @@ export default function RoleHomeScreen({ user, onLogout }) {
       setViolationSubmitting(true);
       setLoading(true);
       const selectedPart = violationParticipants.find(p => p.id === violationForm.participantId);
-      const created = await refereeService.createViolation(selectedViolationRace.id, {
+      const mutation = await refereeService.createViolation(selectedViolationRace.id, {
         ...violationForm,
         gateNumber: selectedPart?.gateNumber || violationForm.gateNumber,
         idempotencyKey: violationForm.idempotencyKey || createClientRequestKey(`violation-${selectedViolationRace.id}`),
       });
+      const created = mutation?.violation || null;
+      const updatedDraft = mutation?.resultDraft || null;
       recordActivity(
         'warning-outline',
         'Đã lập biên bản vi phạm',
@@ -1344,6 +1361,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
           ],
         }));
       }
+      if (updatedDraft?.simulationRunId) {
+        setSelectedRefereeRace(selectedViolationRace);
+        setSimulationDraft(updatedDraft);
+        setSimulationResult(simulationResultFromDraft(updatedDraft));
+        setSimulationConfirmed(true);
+      }
       setViolationModalVisible(false);
       setViolationForm({
         participantId: violationParticipants[0]?.id || '',
@@ -1355,7 +1378,21 @@ export default function RoleHomeScreen({ user, onLogout }) {
         imageFile: null,
         idempotencyKey: createClientRequestKey(`violation-${selectedViolationRace.id}`),
       });
-      showAlert('Thành công', 'Đã lập biên bản vi phạm.');
+      showAlert(
+        'Thành công',
+        updatedDraft
+          ? 'Đã ghi nhận vi phạm và cập nhật lại thứ hạng. Bạn có thể kiểm tra rồi công bố kết quả.'
+          : 'Đã lập biên bản vi phạm.',
+        updatedDraft
+          ? [
+              { text: 'Đóng' },
+              {
+                text: 'Xem & công bố',
+                onPress: () => setRefereeRaceModalVisible(true),
+              },
+            ]
+          : [],
+      );
     } catch (err) {
       showAlert('Lỗi', err.message || 'Không lập được biên bản vi phạm.');
     } finally {

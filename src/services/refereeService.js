@@ -1,5 +1,6 @@
 import { apiRequest } from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
+import { normalizeViolationMutation } from '../utils/refereeFlow.mjs';
 
 const RACE_STATUS_CODES = {
   'Sắp chạy': 'SCHEDULED',
@@ -266,7 +267,16 @@ export const refereeService = {
       headers,
       body,
     });
-    return normalizeViolationResponse(response, payload, raceId, idempotencyKey);
+    const mutation = normalizeViolationMutation(response);
+    return {
+      violation: normalizeViolationResponse(
+        mutation.violation,
+        payload,
+        raceId,
+        idempotencyKey,
+      ),
+      resultDraft: mutation.resultDraft,
+    };
   },
 
   async listPayments() {

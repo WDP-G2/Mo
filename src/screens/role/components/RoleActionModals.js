@@ -955,9 +955,9 @@ function RefereeRaceModal({
               ) : (
                 <View style={styles.emptySimulation}>
                   <Ionicons name="analytics-outline" size={52} color={colors.darkTextMuted} />
-                  <Text style={[styles.centerText, { marginTop: 8 }]}>Chưa chạy mô phỏng</Text>
+                  <Text style={[styles.centerText, { marginTop: 8 }]}>Chưa tải kết quả mô phỏng</Text>
                   <Text style={{ color: colors.darkTextMuted, fontSize: 11, fontWeight: '600', marginTop: 4, textAlign: 'center' }}>
-                    Nhấn "Chạy mô phỏng" để tính kết quả dự kiến dựa trên lịch sử và hệ số ngẫu nhiên
+                    Nút bên dưới sẽ lấy lại phiên đã chạy; nếu chưa có, hệ thống sẽ tạo mô phỏng mới.
                   </Text>
                 </View>
               )}
@@ -968,7 +968,7 @@ function RefereeRaceModal({
                 </Pressable>
                 {!simulationResult && (
                   <Pressable style={styles.primaryAction} onPress={onRunSimulation}>
-                    <Text style={styles.primaryActionText}>Chạy mô phỏng</Text>
+                    <Text style={styles.primaryActionText}>Lấy kết quả mô phỏng</Text>
                   </Pressable>
                 )}
                 {simulationResult && !animDone && !showAnimation && (
@@ -990,7 +990,7 @@ function RefereeRaceModal({
                 {simulationConfirmed && (
                   <Pressable style={styles.primaryAction} onPress={onFinalizeResults}>
                     <Text style={styles.primaryActionText}>
-                      {simulationDraft?.version ? 'Xác nhận & công bố' : 'Tải bản nháp'}
+                      {simulationDraft?.version ? 'Chốt & công bố' : 'Tải bản nháp'}
                     </Text>
                   </Pressable>
                 )}

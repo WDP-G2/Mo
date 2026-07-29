@@ -64,3 +64,27 @@ export function applyParticipantCheckIn(data, { raceId, participantId, participa
     },
   };
 }
+
+export function simulationResultFromDraft(draft) {
+  if (!draft?.simulationRunId || !Array.isArray(draft.rows)) return null;
+  return {
+    runId: draft.simulationRunId,
+    status: 'DRAFTED',
+    participants: draft.rows.map((row) => ({ ...row })),
+    generatedAt: draft.createdAt || draft.updatedAt || null,
+    playbackEndsAt: null,
+  };
+}
+
+export function normalizeViolationMutation(response) {
+  if (response?.violation) {
+    return {
+      violation: response.violation,
+      resultDraft: response.resultDraft || null,
+    };
+  }
+  return {
+    violation: response || null,
+    resultDraft: null,
+  };
+}
