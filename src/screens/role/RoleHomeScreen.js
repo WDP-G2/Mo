@@ -1040,6 +1040,17 @@ export default function RoleHomeScreen({ user, onLogout }) {
 }
 
 function ActivityLogModal({ visible, items, loading, error, onClear, onClose, onPressItem }) {
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  useEffect(() => {
+    if (!visible) setSelectedItem(null);
+  }, [visible]);
+
+  function openItem(item) {
+    onPressItem(item);
+    setSelectedItem({ ...item, read: true });
+  }
+
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.activityBackdrop}>
@@ -1047,49 +1058,59 @@ function ActivityLogModal({ visible, items, loading, error, onClear, onClose, on
           <View style={styles.activityHeader}>
             <View>
               <Text style={styles.activityEyebrow}>Thông báo</Text>
-              <Text style={styles.activityTitle}>Nhật ký thao tác</Text>
+              <Text style={styles.activityTitle}>{selectedItem ? 'Chi tiết thông báo' : 'Nhật ký thao tác'}</Text>
             </View>
-            <Pressable style={styles.activityClose} onPress={onClose}>
-              <Ionicons name="close" size={20} color={colors.darkText} />
+            <Pressable
+              style={styles.activityClose}
+              onPress={selectedItem ? () => setSelectedItem(null) : onClose}
+            >
+              <Ionicons name={selectedItem ? 'chevron-back' : 'close'} size={20} color={colors.darkText} />
             </Pressable>
           </View>
 
-          <ScrollView style={styles.activityList} contentContainerStyle={styles.activityListContent}>
-            {loading ? (
-              <View style={styles.activityEmpty}>
-                <ActivityIndicator color={colors.primary} />
-                <Text style={styles.activityEmptyText}>Đang tải thông báo...</Text>
-              </View>
-            ) : null}
-            {error ? <Text style={styles.activityError}>{error}</Text> : null}
-            {!loading && items.length ? (
-              items.map((item) => (
-                <Pressable
-                  key={`${item.source || 'item'}-${item.id}`}
-                  style={[styles.activityItem, !item.read && styles.activityItemUnread]}
-                  onPress={() => onPressItem(item)}
-                >
-                  <View style={styles.activityIcon}>
-                    <Ionicons name={item.icon} size={18} color={colors.primary} />
-                  </View>
-                  <View style={styles.activityCopy}>
-                    <View style={styles.activityTitleRow}>
-                      {!item.read ? <View style={styles.activityUnreadDot} /> : null}
-                      <Text style={styles.activityItemTitle}>{item.title}</Text>
+          {selectedItem ? (
+            <NotificationDetail item={selectedItem} />
+          ) : (
+            <ScrollView style={styles.activityList} contentContainerStyle={styles.activityListContent}>
+              {loading ? (
+                <View style={styles.activityEmpty}>
+                  <ActivityIndicator color={colors.primary} />
+                  <Text style={styles.activityEmptyText}>Đang tải thông báo...</Text>
+                </View>
+              ) : null}
+              {error ? <Text style={styles.activityError}>{error}</Text> : null}
+              {!loading && items.length ? (
+                items.map((item) => (
+                  <Pressable
+                    key={`${item.source || 'item'}-${item.id}`}
+                    style={[styles.activityItem, !item.read && styles.activityItemUnread]}
+                    onPress={() => openItem(item)}
+                  >
+                    <View style={styles.activityIcon}>
+                      <Ionicons name={item.icon} size={18} color={colors.primary} />
                     </View>
-                    <Text style={styles.activityDetail} numberOfLines={2}>{item.detail}</Text>
-                  </View>
-                  <Text style={styles.activityTime}>{item.time}</Text>
-                </Pressable>
-              ))
-            ) : null}
-            {!loading && !items.length ? (
-              <View style={styles.activityEmpty}>
-                <Ionicons name="notifications-outline" size={34} color={colors.darkTextMuted} />
-                <Text style={styles.activityEmptyText}>Chưa có thông báo nào.</Text>
-              </View>
-            ) : null}
-          </ScrollView>
+                    <View style={styles.activityCopy}>
+                      <View style={styles.activityTitleRow}>
+                        {!item.read ? <View style={styles.activityUnreadDot} /> : null}
+                        <Text style={styles.activityItemTitle}>{item.title}</Text>
+                      </View>
+                      <Text style={styles.activityDetail} numberOfLines={2}>{item.detail}</Text>
+                    </View>
+                    <View style={styles.activityRight}>
+                      <Text style={styles.activityTime}>{item.time}</Text>
+                      <Ionicons name="chevron-forward" size={16} color={colors.darkTextMuted} />
+                    </View>
+                  </Pressable>
+                ))
+              ) : null}
+              {!loading && !items.length ? (
+                <View style={styles.activityEmpty}>
+                  <Ionicons name="notifications-outline" size={34} color={colors.darkTextMuted} />
+                  <Text style={styles.activityEmptyText}>Chưa có thông báo nào.</Text>
+                </View>
+              ) : null}
+            </ScrollView>
+          )}
 
           <View style={styles.activityFooter}>
             <Pressable style={styles.activitySecondaryButton} onPress={onClear}>
@@ -1102,6 +1123,46 @@ function ActivityLogModal({ visible, items, loading, error, onClear, onClose, on
         </View>
       </View>
     </Modal>
+  );
+}
+
+function NotificationDetail({ item }) {
+  const metadata = item.metadata && typeof item.metadata === 'object' ? item.metadata : {};
+  const metadataRows = Object.entries(metadata).filter(([, value]) => value !== undefined && value !== null && value !== '');
+
+  return (
+    <ScrollView style={styles.notificationDetail} contentContainerStyle={styles.notificationDetailContent}>
+      <View style={styles.notificationDetailIcon}>
+        <Ionicons name={item.icon || 'notifications-outline'} size={28} color={colors.primary} />
+      </View>
+      <Text style={styles.notificationDetailTitle}>{item.title || 'Thông báo'}</Text>
+      <Text style={styles.notificationDetailBody}>{item.detail || 'Không có nội dung chi tiết.'}</Text>
+
+      <View style={styles.notificationInfoGrid}>
+        <NotificationInfoRow label="Thời gian" value={item.time || 'Chưa cập nhật'} />
+        <NotificationInfoRow label="Nguồn" value={item.source === 'server' ? 'Hệ thống' : 'Trong phiên này'} />
+        <NotificationInfoRow label="Loại" value={item.type || (item.source === 'local' ? 'Thao tác' : 'GENERAL')} />
+        <NotificationInfoRow label="Trạng thái" value={item.read ? 'Đã đọc' : 'Chưa đọc'} />
+      </View>
+
+      {metadataRows.length ? (
+        <View style={styles.notificationMetadata}>
+          <Text style={styles.notificationMetadataTitle}>Dữ liệu liên quan</Text>
+          {metadataRows.map(([key, value]) => (
+            <NotificationInfoRow key={key} label={key} value={String(value)} />
+          ))}
+        </View>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+function NotificationInfoRow({ label, value }) {
+  return (
+    <View style={styles.notificationInfoRow}>
+      <Text style={styles.notificationInfoLabel}>{label}</Text>
+      <Text style={styles.notificationInfoValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -1284,6 +1345,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
   },
+  activityRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 6,
+  },
   activityEmpty: {
     alignItems: 'center',
     paddingVertical: 34,
@@ -1335,6 +1401,71 @@ const styles = StyleSheet.create({
     color: '#1D1705',
     fontSize: 12,
     fontWeight: '900',
+  },
+  notificationDetail: {
+    marginTop: 14,
+    maxHeight: 360,
+  },
+  notificationDetailContent: {
+    paddingBottom: 4,
+  },
+  notificationDetailIcon: {
+    width: 58,
+    height: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: colors.darkSurfaceSoft,
+    marginBottom: 14,
+  },
+  notificationDetailTitle: {
+    color: colors.darkText,
+    fontSize: 18,
+    fontWeight: '900',
+    lineHeight: 24,
+  },
+  notificationDetailBody: {
+    marginTop: 10,
+    color: colors.darkTextMuted,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  notificationInfoGrid: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 14,
+    backgroundColor: colors.darkSurfaceSoft,
+    overflow: 'hidden',
+  },
+  notificationInfoRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#1D2A40',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  notificationInfoLabel: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  notificationInfoValue: {
+    marginTop: 4,
+    color: colors.darkText,
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 17,
+  },
+  notificationMetadata: {
+    marginTop: 14,
+  },
+  notificationMetadataTitle: {
+    color: colors.darkText,
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 8,
   },
   content: {
     paddingHorizontal: 15,
