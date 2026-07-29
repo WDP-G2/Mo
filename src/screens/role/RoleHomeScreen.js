@@ -6,10 +6,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   Alert,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -23,6 +21,7 @@ import { spectatorService } from '../../services/spectatorService';
 import { tournamentService } from '../../services/tournamentService';
 import { userService } from '../../services/userService';
 import { getRoleLabel } from '../../utils/role';
+import { RoleActionModals } from './components/RoleActionModals';
 import { EmptyText, ListItem, Metric, ProfileField, SearchBox, Section } from './components/RolePrimitives';
 import { buildStats, displayName, formatDate, initials, loadDataForRole, matchesQuery, roleOrSpectator } from './roleData';
 
@@ -642,568 +641,76 @@ export default function RoleHomeScreen({ user, onLogout }) {
           })}
         </View>
 
-        {/* Modal: Đặt cược */}
-        <Modal visible={betModalVisible} transparent={true} animationType="fade" onRequestClose={() => setBetModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Đặt cược ảo</Text>
-              
-              {selectedMarket && (
-                <ScrollView>
-                  <Text style={styles.modalLabel}>Cuộc đua: {selectedMarket.raceName}</Text>
-                  <Text style={styles.modalLabel}>Giải đấu: {selectedMarket.tournamentName}</Text>
-                  <Text style={styles.modalLabel}>Hạn mức: {selectedMarket.minStake.toLocaleString()}đ - {selectedMarket.maxStake.toLocaleString()}đ</Text>
-                  
-                  <Text style={styles.modalLabel}>Chọn ngựa đua:</Text>
-                  <View style={styles.modalSelector}>
-                    {(selectedMarket.options || []).map((opt) => {
-                      const active = selectedOption?.participantId === opt.participantId;
-                      return (
-                        <Pressable
-                          key={opt.participantId}
-                          style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                          onPress={() => setSelectedOption(opt)}
-                        >
-                          <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                            {opt.horseName} (P: {opt.winProbability ? Math.round(opt.winProbability * 100) : '-'}%)
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-
-                  <Text style={styles.modalLabel}>Số tiền cược (VND):</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    keyboardType="numeric"
-                    placeholder="Nhập số tiền cược"
-                    placeholderTextColor={colors.darkTextMuted}
-                    value={betAmount}
-                    onChangeText={setBetAmount}
-                  />
-
-                  <View style={styles.modalButtonRow}>
-                    <Pressable style={styles.secondaryAction} onPress={() => setBetModalVisible(false)}>
-                      <Text style={styles.secondaryActionText}>Hủy</Text>
-                    </Pressable>
-                    <Pressable style={styles.primaryAction} onPress={submitPlaceBet}>
-                      <Text style={styles.primaryActionText}>Đặt cược</Text>
-                    </Pressable>
-                  </View>
-                </ScrollView>
-              )}
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal: Nạp tiền */}
-        <Modal visible={depositModalVisible} transparent={true} animationType="fade" onRequestClose={() => setDepositModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Nạp tiền vào ví</Text>
-              
-              <ScrollView>
-                <Text style={styles.modalLabel}>Chọn số tiền nhanh:</Text>
-                <View style={styles.presetRow}>
-                  {['50000', '100000', '200000', '500000'].map((preset) => {
-                    const active = depositAmount === preset;
-                    return (
-                      <Pressable
-                        key={preset}
-                        style={[styles.presetButton, active && styles.presetButtonActive]}
-                        onPress={() => setDepositAmount(preset)}
-                      >
-                        <Text style={[styles.presetText, active && styles.presetTextActive]}>
-                          {(Number(preset)).toLocaleString()}đ
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Text style={styles.modalLabel}>Số tiền tự nhập (VND):</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  keyboardType="numeric"
-                  placeholder="Ví dụ: 100000"
-                  placeholderTextColor={colors.darkTextMuted}
-                  value={depositAmount}
-                  onChangeText={setDepositAmount}
-                />
-
-                <Text style={styles.modalLabel}>Thông tin thẻ VISA Sandbox:</Text>
-                <TextInput
-                  style={[styles.modalInput, { marginBottom: 8 }]}
-                  placeholder="Số thẻ"
-                  placeholderTextColor={colors.darkTextMuted}
-                  value={cardInfo.cardNumber}
-                  onChangeText={(val) => setCardInfo(curr => ({ ...curr, cardNumber: val }))}
-                />
-                <TextInput
-                  style={[styles.modalInput, { marginBottom: 8 }]}
-                  placeholder="Tên chủ thẻ"
-                  placeholderTextColor={colors.darkTextMuted}
-                  value={cardInfo.cardName}
-                  onChangeText={(val) => setCardInfo(curr => ({ ...curr, cardName: val }))}
-                />
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
-                  <TextInput
-                    style={[styles.modalInput, { flex: 1 }]}
-                    placeholder="Hết hạn (MM/YY)"
-                    placeholderTextColor={colors.darkTextMuted}
-                    value={cardInfo.expiry}
-                    onChangeText={(val) => setCardInfo(curr => ({ ...curr, expiry: val }))}
-                  />
-                  <TextInput
-                    style={[styles.modalInput, { flex: 1 }]}
-                    placeholder="CVV"
-                    placeholderTextColor={colors.darkTextMuted}
-                    secureTextEntry
-                    value={cardInfo.cvv}
-                    onChangeText={(val) => setCardInfo(curr => ({ ...curr, cvv: val }))}
-                  />
-                </View>
-
-                <View style={styles.modalButtonRow}>
-                  <Pressable style={styles.secondaryAction} onPress={() => setDepositModalVisible(false)}>
-                    <Text style={styles.secondaryActionText}>Hủy</Text>
-                  </Pressable>
-                  <Pressable style={styles.primaryAction} onPress={submitDeposit}>
-                    <Text style={styles.primaryActionText}>Thanh toán</Text>
-                  </Pressable>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal: Thêm ngựa */}
-        <Modal visible={horseModalVisible} transparent={true} animationType="fade" onRequestClose={() => setHorseModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Thêm ngựa thi đấu mới</Text>
-              
-              <ScrollView>
-                <Text style={styles.modalLabel}>Tên ngựa:</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Ví dụ: Chiến mã"
-                  placeholderTextColor={colors.darkTextMuted}
-                  value={newHorse.name}
-                  onChangeText={(val) => setNewHorse(curr => ({ ...curr, name: val }))}
-                />
-
-                <Text style={styles.modalLabel}>Giống ngựa:</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Ví dụ: Thoroughbred"
-                  placeholderTextColor={colors.darkTextMuted}
-                  value={newHorse.breed}
-                  onChangeText={(val) => setNewHorse(curr => ({ ...curr, breed: val }))}
-                />
-
-                <Text style={styles.modalLabel}>Tuổi (năm):</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  keyboardType="numeric"
-                  placeholder="Ví dụ: 3"
-                  placeholderTextColor={colors.darkTextMuted}
-                  value={newHorse.age}
-                  onChangeText={(val) => setNewHorse(curr => ({ ...curr, age: val }))}
-                />
-
-                <Text style={styles.modalLabel}>Trạng thái sức khỏe:</Text>
-                <View style={styles.modalSelector}>
-                  {['Khỏe mạnh', 'Chấn thương nhẹ', 'Cần theo dõi'].map((status) => {
-                    const active = newHorse.healthStatus === status;
-                    return (
-                      <Pressable
-                        key={status}
-                        style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                        onPress={() => setNewHorse(curr => ({ ...curr, healthStatus: status }))}
-                      >
-                        <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                          {status}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <View style={styles.modalButtonRow}>
-                  <Pressable style={styles.secondaryAction} onPress={() => setHorseModalVisible(false)}>
-                    <Text style={styles.secondaryActionText}>Hủy</Text>
-                  </Pressable>
-                  <Pressable style={styles.primaryAction} onPress={submitCreateHorse}>
-                    <Text style={styles.primaryActionText}>Thêm ngựa</Text>
-                  </Pressable>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal: Gửi lời mời Jockey */}
-        <Modal visible={inviteModalVisible} transparent={true} animationType="fade" onRequestClose={() => setInviteModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Gửi lời mời Jockey</Text>
-              
-              <ScrollView>
-                <Text style={styles.modalLabel}>Chọn ngựa của bạn:</Text>
-                <View style={styles.modalSelector}>
-                  {(ownerHorses || []).map((h) => {
-                    const active = inviteForm.horseId === h.id;
-                    return (
-                      <Pressable
-                        key={h.id}
-                        style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                        onPress={() => setInviteForm(curr => ({ ...curr, horseId: h.id }))}
-                      >
-                        <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                          {h.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Text style={styles.modalLabel}>Chọn cuộc đua:</Text>
-                <View style={styles.modalSelector}>
-                  {(ownerOpenRaces || []).map((r) => {
-                    const active = inviteForm.raceId === r.id;
-                    return (
-                      <Pressable
-                        key={r.id}
-                        style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                        onPress={() => setInviteForm(curr => ({ ...curr, raceId: r.id }))}
-                      >
-                        <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                          {r.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Text style={styles.modalLabel}>Chọn Jockey:</Text>
-                <View style={styles.modalSelector}>
-                  {(allJockeys || []).map((j) => {
-                    const active = inviteForm.jockeyId === j.id;
-                    return (
-                      <Pressable
-                        key={j.id}
-                        style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                        onPress={() => setInviteForm(curr => ({ ...curr, jockeyId: j.id }))}
-                      >
-                        <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                          {j.fullName || j.username}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Text style={styles.modalLabel}>Mức thù lao (VND):</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  keyboardType="numeric"
-                  placeholder="Thù lao trả cho Jockey"
-                  placeholderTextColor={colors.darkTextMuted}
-                  value={inviteForm.remunerationAmount}
-                  onChangeText={(val) => setInviteForm(curr => ({ ...curr, remunerationAmount: val }))}
-                />
-
-                <Text style={styles.modalLabel}>Lời nhắn:</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Lời nhắn đính kèm"
-                  placeholderTextColor={colors.darkTextMuted}
-                  value={inviteForm.message}
-                  onChangeText={(val) => setInviteForm(curr => ({ ...curr, message: val }))}
-                />
-
-                <View style={styles.modalButtonRow}>
-                  <Pressable style={styles.secondaryAction} onPress={() => setInviteModalVisible(false)}>
-                    <Text style={styles.secondaryActionText}>Hủy</Text>
-                  </Pressable>
-                  <Pressable style={styles.primaryAction} onPress={submitJockeyInvitation}>
-                    <Text style={styles.primaryActionText}>Gửi lời mời</Text>
-                  </Pressable>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal: Đăng ký giải */}
-        <Modal visible={registerModalVisible} transparent={true} animationType="fade" onRequestClose={() => setRegisterModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Đăng ký giải đấu</Text>
-              
-              <ScrollView>
-                <Text style={styles.modalLabel}>Chọn giải đấu:</Text>
-                <View style={styles.modalSelector}>
-                  {(ownerTournaments || []).map((t) => {
-                    const active = registerForm.tournamentId === (t.id || t._id);
-                    return (
-                      <Pressable
-                        key={t.id || t._id}
-                        style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                        onPress={() => handleRegisterTournamentChange(t.id || t._id)}
-                      >
-                        <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                          {t.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Text style={styles.modalLabel}>Chọn cuộc đua:</Text>
-                <View style={styles.modalSelector}>
-                  {(tournamentRaces || []).map((r) => {
-                    const active = registerForm.raceId === (r.id || r._id);
-                    return (
-                      <Pressable
-                        key={r.id || r._id}
-                        style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                        onPress={() => {
-                          const raceId = r.id || r._id;
-                          const raceInvitation = registerJockeys.find((item) => String(item.raceId) === String(raceId));
-                          setRegisterForm(curr => ({
-                            ...curr,
-                            raceId,
-                            jockeyInvitationId: raceInvitation?.id || '',
-                          }));
-                        }}
-                      >
-                        <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                          Race R{r.raceNumber} · {r.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Text style={styles.modalLabel}>Chọn ngựa của bạn:</Text>
-                <View style={styles.modalSelector}>
-                  {(ownerHorses || []).map((h) => {
-                    const active = registerForm.horseId === h.id;
-                    return (
-                      <Pressable
-                        key={h.id}
-                        style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                        onPress={() => setRegisterForm(curr => ({ ...curr, horseId: h.id }))}
-                      >
-                        <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                          {h.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Text style={styles.modalLabel}>Chọn lời mời Jockey đã chấp nhận:</Text>
-                <View style={styles.modalSelector}>
-                  {(registerJockeys || []).map((j) => {
-                    const active = registerForm.jockeyInvitationId === j.id;
-                    const disabled = registerForm.raceId && String(j.raceId) !== String(registerForm.raceId);
-                    return (
-                      <Pressable
-                        key={j.id}
-                        disabled={disabled}
-                        style={[
-                          styles.modalSelectorOption,
-                          active && styles.modalSelectorOptionActive,
-                          disabled && styles.disabledButton,
-                        ]}
-                        onPress={() => setRegisterForm(curr => ({
-                          ...curr,
-                          horseId: j.horseId || curr.horseId,
-                          jockeyInvitationId: j.id,
-                        }))}
-                      >
-                        <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                          {j.jockeyName || 'Jockey'} · {j.horseName || 'Ngựa'}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                {!registerJockeys?.length ? (
-                  <EmptyText text="Cần có lời mời Jockey đã chấp nhận trước khi đăng ký race." />
-                ) : null}
-
-                <View style={styles.modalButtonRow}>
-                  <Pressable style={styles.secondaryAction} onPress={() => setRegisterModalVisible(false)}>
-                    <Text style={styles.secondaryActionText}>Hủy</Text>
-                  </Pressable>
-                  <Pressable style={styles.primaryAction} onPress={submitRegistration}>
-                    <Text style={styles.primaryActionText}>Đăng ký ngay</Text>
-                  </Pressable>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal: Referee Race Control */}
-        <Modal visible={refereeRaceModalVisible} transparent={true} animationType="fade" onRequestClose={() => setRefereeRaceModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={[styles.modalContent, { height: '80%' }]}>
-              {selectedRefereeRace && (
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalTitle}>Mô phỏng cuộc đua</Text>
-                  <Text style={styles.modalLabel}>Race: {selectedRefereeRace.name}</Text>
-                  <Text style={styles.modalLabel}>Giải đấu: {selectedRefereeRace.tournamentName}</Text>
-                  
-                  {simulationLoading ? (
-                    <View style={[styles.centerState, { marginVertical: 30 }]}>
-                      <ActivityIndicator color={colors.primary} />
-                      <Text style={styles.centerText}>Đang mô phỏng diễn biến...</Text>
-                    </View>
-                  ) : simulationResult ? (
-                    <ScrollView style={{ marginVertical: 12 }}>
-                      <Text style={styles.modalLabel}>Bảng kết quả dự kiến:</Text>
-                      {(simulationResult.participants || []).sort((a,b) => a.rank - b.rank).map((p) => (
-                        <View key={p.participantId} style={styles.participantRow}>
-                          <Text style={styles.participantText}>{p.horseName} (Nài: {p.jockeyName})</Text>
-                          <Text style={styles.participantRank}>Hạng {p.rank} ({(p.finishTimeMillis/1000).toFixed(2)}s)</Text>
-                        </View>
-                      ))}
-                    </ScrollView>
-                  ) : (
-                    <View style={{ marginVertical: 30, alignItems: 'center' }}>
-                      <Ionicons name="play-circle-outline" size={48} color={colors.darkTextMuted} />
-                      <Text style={styles.centerText}>Chưa chạy mô phỏng cuộc đua</Text>
-                    </View>
-                  )}
-
-                  <View style={styles.modalButtonRow}>
-                    <Pressable style={styles.secondaryAction} onPress={() => setRefereeRaceModalVisible(false)}>
-                      <Text style={styles.secondaryActionText}>Đóng</Text>
-                    </Pressable>
-                    {!simulationResult && (
-                      <Pressable style={styles.primaryAction} onPress={runRaceSimulation}>
-                        <Text style={styles.primaryActionText}>Chạy mô phỏng</Text>
-                      </Pressable>
-                    )}
-                    {simulationResult && !simulationConfirmed && (
-                      <Pressable style={styles.primaryAction} onPress={confirmRaceSimulation}>
-                        <Text style={styles.primaryActionText}>Xác nhận kết quả</Text>
-                      </Pressable>
-                    )}
-                    {simulationConfirmed && (
-                      <Pressable style={styles.primaryAction} onPress={finalizeRaceResults}>
-                        <Text style={styles.primaryActionText}>Chốt kết quả</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                </View>
-              )}
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal: Báo cáo vi phạm */}
-        <Modal visible={violationModalVisible} transparent={true} animationType="fade" onRequestClose={() => setViolationModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              {selectedViolationRace && (
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalTitle}>Lập biên bản vi phạm</Text>
-                  <Text style={styles.modalLabel}>Race: {selectedViolationRace.name}</Text>
-                  
-                  <ScrollView>
-                    <Text style={styles.modalLabel}>Chọn Jockey/Ngựa vi phạm:</Text>
-                    <View style={styles.modalSelector}>
-                      {(violationParticipants || []).map((p) => {
-                        const active = violationForm.participantId === p.id;
-                        return (
-                          <Pressable
-                            key={p.id}
-                            style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                            onPress={() => setViolationForm(curr => ({ ...curr, participantId: p.id }))}
-                          >
-                            <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                              {p.horseName} (Nài: {p.jockeyName})
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-
-                    <Text style={styles.modalLabel}>Loại vi phạm:</Text>
-                    <View style={styles.modalSelector}>
-                      {['Cản trở đối thủ', 'Lấn làn', 'Xuất phát sớm', 'Khác'].map((t) => {
-                        const active = violationForm.type === t;
-                        return (
-                          <Pressable
-                            key={t}
-                            style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                            onPress={() => setViolationForm(curr => ({ ...curr, type: t }))}
-                          >
-                            <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                              {t}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-
-                    <Text style={styles.modalLabel}>Mức độ nghiêm trọng:</Text>
-                    <View style={styles.modalSelector}>
-                      {['Phạt nhẹ', 'Phạt cảnh cáo', 'Nghiêm trọng'].map((s) => {
-                        const active = violationForm.severity === s;
-                        return (
-                          <Pressable
-                            key={s}
-                            style={[styles.modalSelectorOption, active && styles.modalSelectorOptionActive]}
-                            onPress={() => setViolationForm(curr => ({ ...curr, severity: s }))}
-                          >
-                            <Text style={[styles.modalSelectorText, active && styles.modalSelectorTextActive]}>
-                              {s}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-
-                    <Text style={styles.modalLabel}>Hình phạt đề xuất:</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="Ví dụ: Phạt tiền, Cảnh cáo..."
-                      placeholderTextColor={colors.darkTextMuted}
-                      value={violationForm.penalty}
-                      onChangeText={(val) => setViolationForm(curr => ({ ...curr, penalty: val }))}
-                    />
-
-                    <Text style={styles.modalLabel}>Mô tả chi tiết lỗi vi phạm:</Text>
-                    <TextInput
-                      style={[styles.modalInput, { minHeight: 60 }]}
-                      multiline
-                      placeholder="Nhập mô tả lỗi vi phạm..."
-                      placeholderTextColor={colors.darkTextMuted}
-                      value={violationForm.description}
-                      onChangeText={(val) => setViolationForm(curr => ({ ...curr, description: val }))}
-                    />
-
-                    <View style={styles.modalButtonRow}>
-                      <Pressable style={styles.secondaryAction} onPress={() => setViolationModalVisible(false)}>
-                        <Text style={styles.secondaryActionText}>Hủy</Text>
-                      </Pressable>
-                      <Pressable style={styles.primaryAction} onPress={submitViolation}>
-                        <Text style={styles.primaryActionText}>Lập biên bản</Text>
-                      </Pressable>
-                    </View>
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-          </View>
-        </Modal>
+        <RoleActionModals
+          bet={{
+            visible: betModalVisible,
+            selectedMarket,
+            selectedOption,
+            betAmount,
+            onChangeSelectedOption: setSelectedOption,
+            onChangeBetAmount: setBetAmount,
+            onClose: () => setBetModalVisible(false),
+            onSubmit: submitPlaceBet,
+          }}
+          deposit={{
+            visible: depositModalVisible,
+            depositAmount,
+            cardInfo,
+            onChangeDepositAmount: setDepositAmount,
+            onChangeCardInfo: setCardInfo,
+            onClose: () => setDepositModalVisible(false),
+            onSubmit: submitDeposit,
+          }}
+          horse={{
+            visible: horseModalVisible,
+            newHorse,
+            onChangeNewHorse: setNewHorse,
+            onClose: () => setHorseModalVisible(false),
+            onSubmit: submitCreateHorse,
+          }}
+          invite={{
+            visible: inviteModalVisible,
+            ownerHorses,
+            ownerOpenRaces,
+            allJockeys,
+            inviteForm,
+            onChangeInviteForm: setInviteForm,
+            onClose: () => setInviteModalVisible(false),
+            onSubmit: submitJockeyInvitation,
+          }}
+          registration={{
+            visible: registerModalVisible,
+            ownerTournaments,
+            tournamentRaces,
+            ownerHorses,
+            registerJockeys,
+            registerForm,
+            onChangeTournament: handleRegisterTournamentChange,
+            onChangeRegisterForm: setRegisterForm,
+            onClose: () => setRegisterModalVisible(false),
+            onSubmit: submitRegistration,
+          }}
+          refereeRace={{
+            visible: refereeRaceModalVisible,
+            selectedRefereeRace,
+            simulationLoading,
+            simulationResult,
+            simulationConfirmed,
+            onClose: () => setRefereeRaceModalVisible(false),
+            onRunSimulation: runRaceSimulation,
+            onConfirmSimulation: confirmRaceSimulation,
+            onFinalizeResults: finalizeRaceResults,
+          }}
+          violation={{
+            visible: violationModalVisible,
+            selectedViolationRace,
+            violationParticipants,
+            violationForm,
+            onChangeViolationForm: setViolationForm,
+            onClose: () => setViolationModalVisible(false),
+            onSubmit: submitViolation,
+          }}
+        />
       </View>
     </SafeAreaView>
   );
@@ -2029,118 +1536,5 @@ const styles = StyleSheet.create({
     color: '#1D1705',
     fontSize: 12,
     fontWeight: '800',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: colors.darkSurface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.darkBorder,
-    padding: 20,
-    maxHeight: '85%',
-  },
-  modalTitle: {
-    color: colors.darkText,
-    fontSize: 18,
-    fontWeight: '900',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalLabel: {
-    color: colors.darkTextMuted,
-    fontSize: 12,
-    fontWeight: '800',
-    marginTop: 10,
-    marginBottom: 6,
-  },
-  modalInput: {
-    backgroundColor: colors.darkSurfaceSoft,
-    borderWidth: 1,
-    borderColor: colors.darkBorder,
-    borderRadius: 10,
-    color: colors.darkText,
-    padding: 10,
-    fontSize: 13,
-    fontWeight: '700',
-    minHeight: 40,
-  },
-  modalSelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginVertical: 6,
-  },
-  modalSelectorOption: {
-    borderWidth: 1,
-    borderColor: colors.darkBorder,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: colors.darkSurfaceSoft,
-  },
-  modalSelectorOptionActive: {
-    borderColor: colors.primary,
-    backgroundColor: '#3A2F1B',
-  },
-  modalSelectorText: {
-    color: colors.darkTextMuted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  modalSelectorTextActive: {
-    color: colors.primary,
-  },
-  modalButtonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-  },
-  presetRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginVertical: 8,
-  },
-  presetButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.darkBorder,
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
-    backgroundColor: colors.darkSurfaceSoft,
-  },
-  presetButtonActive: {
-    borderColor: colors.primary,
-    backgroundColor: '#3A2F1B',
-  },
-  presetText: {
-    color: colors.darkTextMuted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  presetTextActive: {
-    color: colors.primary,
-  },
-  participantRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1D2A40',
-  },
-  participantText: {
-    color: colors.darkText,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  participantRank: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '900',
   },
 });
