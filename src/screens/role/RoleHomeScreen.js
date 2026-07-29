@@ -84,6 +84,69 @@ const NOTIFICATION_TYPE_LABELS = {
   GENERAL: 'Thông báo hệ thống',
 };
 
+const ACTIVE_INVITATION_STATUSES = new Set(['PENDING', 'Chờ xử lý', 'ACCEPTED', 'Đã chấp nhận']);
+const ACCEPTED_INVITATION_STATUSES = new Set(['ACCEPTED', 'Đã chấp nhận']);
+const ACTIVE_REGISTRATION_STATUSES = new Set([
+  'PENDING',
+  'Chờ duyệt',
+  'APPROVED',
+  'Đã duyệt',
+  'ONGOING',
+  'Đang chạy',
+  'Đang diễn ra',
+]);
+
+function sameId(left, right) {
+  return String(left || '') === String(right || '');
+}
+
+function isActiveInvitation(item) {
+  return ACTIVE_INVITATION_STATUSES.has(item?.status);
+}
+
+function isAcceptedInvitation(item) {
+  return ACCEPTED_INVITATION_STATUSES.has(item?.status);
+}
+
+function isActiveRegistration(item) {
+  return ACTIVE_REGISTRATION_STATUSES.has(item?.statusCode || item?.status);
+}
+
+function raceHorseLockedByInvitation(invitations, raceId, horseId) {
+  return (invitations || []).some(
+    (item) => isActiveInvitation(item) && sameId(item.raceId, raceId) && sameId(item.horseId, horseId),
+  );
+}
+
+function raceJockeyLockedByInvitation(invitations, raceId, jockeyId) {
+  return (invitations || []).some(
+    (item) => isActiveInvitation(item) && sameId(item.raceId, raceId) && sameId(item.jockeyId, jockeyId),
+  );
+}
+
+function raceHorseLockedByRegistration(registrations, raceId, horseId) {
+  return (registrations || []).some(
+    (item) => isActiveRegistration(item) && sameId(item.raceId, raceId) && sameId(item.horseId, horseId),
+  );
+}
+
+function raceJockeyLockedByRegistration(registrations, raceId, jockeyId) {
+  return (registrations || []).some(
+    (item) => isActiveRegistration(item) && sameId(item.raceId, raceId) && sameId(item.jockeyId, jockeyId),
+  );
+}
+
+function uniqueAcceptedRaceHorseInvitations(invitations) {
+  const seen = new Set();
+  return (invitations || []).filter((item) => {
+    if (!isAcceptedInvitation(item)) return false;
+    const key = `${item.raceId || ''}:${item.horseId || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 const emptyNewHorse = {
   name: '',
   breed: '',
@@ -192,6 +255,8 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [allJockeys, setAllJockeys] = useState([]);
   const [ownerHorses, setOwnerHorses] = useState([]);
   const [ownerOpenRaces, setOwnerOpenRaces] = useState([]);
+  const [ownerInvitations, setOwnerInvitations] = useState([]);
+  const [ownerRegistrations, setOwnerRegistrations] = useState([]);
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [activityModalVisible, setActivityModalVisible] = useState(false);
@@ -702,13 +767,17 @@ export default function RoleHomeScreen({ user, onLogout }) {
   async function openInviteModal() {
     try {
       setLoading(true);
-      const [horses, jockeys] = await Promise.all([
+      const [horses, jockeys, invitations, registrations] = await Promise.all([
         ownerService.listHorses(),
         userService.listJockeyDirectory(),
+        ownerService.listJockeyInvitations(),
+        ownerService.listRaceRegistrations(),
       ]);
       const availableJockeys = (jockeys || []).filter((jockey) => jockey.canInvite !== false);
       setOwnerHorses(horses);
       setAllJockeys(availableJockeys);
+      setOwnerInvitations(invitations || []);
+      setOwnerRegistrations(registrations || []);
 
       // Extract all open races across open tournaments
       const tournaments = await tournamentService.listOwnerOpen();
@@ -729,17 +798,32 @@ export default function RoleHomeScreen({ user, onLogout }) {
       const openTournaments = (tournaments || []).filter(tournamentOpenForRegistration);
       setOwnerTournaments(openTournaments);
       setOwnerOpenRaces(openRaces);
+      const firstRace = openRaces[0];
+      const availableHorses = (horses || []).filter(
+        (horse) =>
+          firstRace &&
+          !raceHorseLockedByInvitation(invitations, firstRace.id, horse.id) &&
+          !raceHorseLockedByRegistration(registrations, firstRace.id, horse.id),
+      );
+      const availableRaceJockeys = availableJockeys.filter(
+        (jockey) =>
+          firstRace &&
+          !raceJockeyLockedByInvitation(invitations, firstRace.id, jockey.id) &&
+          !raceJockeyLockedByRegistration(registrations, firstRace.id, jockey.id),
+      );
 
       setInviteForm({
-        horseId: horses[0]?.id || '',
-        jockeyId: availableJockeys[0]?.id || '',
-        raceId: openRaces[0]?.id || '',
-        tournamentId: openRaces[0]?.tournamentId || '',
+        horseId: availableHorses[0]?.id || '',
+        jockeyId: availableRaceJockeys[0]?.id || '',
+        raceId: firstRace?.id || '',
+        tournamentId: firstRace?.tournamentId || '',
         message: '',
-        remunerationAmount: openRaces[0]?.entryFee ? String(openRaces[0].entryFee) : '500000'
+        remunerationAmount: firstRace?.entryFee ? String(firstRace.entryFee) : '500000'
       });
       setInviteError(
-        availableJockeys.length ? '' : 'Hiện chưa có jockey khả dụng để gửi lời mời.',
+        availableJockeys.length && availableHorses.length
+          ? ''
+          : 'Race này chưa còn cặp ngựa/jockey khả dụng để gửi lời mời.',
       );
       setInviteModalVisible(true);
     } catch (err) {
@@ -763,12 +847,38 @@ export default function RoleHomeScreen({ user, onLogout }) {
       return;
     }
 
+    if (
+      raceHorseLockedByInvitation(ownerInvitations, inviteForm.raceId, inviteForm.horseId) ||
+      raceHorseLockedByRegistration(ownerRegistrations, inviteForm.raceId, inviteForm.horseId)
+    ) {
+      setInviteError('Ngựa này đã có jockey hoặc đã đăng ký trong cuộc đua này.');
+      return;
+    }
+
+    if (
+      raceJockeyLockedByInvitation(ownerInvitations, inviteForm.raceId, inviteForm.jockeyId) ||
+      raceJockeyLockedByRegistration(ownerRegistrations, inviteForm.raceId, inviteForm.jockeyId)
+    ) {
+      setInviteError('Jockey này đã có lời mời trong cuộc đua này.');
+      return;
+    }
+
     try {
       setInviteSubmitting(true);
       await ownerService.createJockeyInvitation({
         ...inviteForm,
         idempotencyKey: 'invite-' + Date.now()
       });
+      setOwnerInvitations((current) => [
+        ...current,
+        {
+          id: `local-${Date.now()}`,
+          horseId: inviteForm.horseId,
+          jockeyId: inviteForm.jockeyId,
+          raceId: inviteForm.raceId,
+          status: 'Chờ xử lý',
+        },
+      ]);
       const invitedJockey = allJockeys.find((jockey) => jockey.id === inviteForm.jockeyId);
       const invitedHorse = ownerHorses.find((horse) => horse.id === inviteForm.horseId);
       recordActivity(
@@ -790,21 +900,29 @@ export default function RoleHomeScreen({ user, onLogout }) {
   async function openRegisterModal() {
     try {
       setLoading(true);
-      const [tournaments, horses, invitations] = await Promise.all([
+      const [tournaments, horses, invitations, registrations] = await Promise.all([
         tournamentService.listOwnerOpen(),
         ownerService.listHorses(),
         ownerService.listJockeyInvitations(),
+        ownerService.listRaceRegistrations(),
       ]);
       const openTournaments = (tournaments || []).filter(tournamentOpenForRegistration);
-      const acceptedInvitations = (invitations || []).filter((item) => item.status === 'Đã chấp nhận' || item.status === 'ACCEPTED');
+      const acceptedInvitations = uniqueAcceptedRaceHorseInvitations(invitations);
       setOwnerTournaments(openTournaments);
       setOwnerHorses(horses);
+      setOwnerInvitations(invitations || []);
+      setOwnerRegistrations(registrations || []);
       setRegisterJockeys(acceptedInvitations);
 
       if (openTournaments.length > 0) {
         const races = (openTournaments[0].races || []).filter(raceOpenForRegistration);
         const selectedRaceId = races[0]?.id || races[0]?._id || '';
-        const raceInvitations = acceptedInvitations.filter((item) => String(item.raceId) === String(selectedRaceId));
+        const raceInvitations = acceptedInvitations.filter(
+          (item) =>
+            sameId(item.raceId, selectedRaceId) &&
+            !raceHorseLockedByRegistration(registrations, selectedRaceId, item.horseId) &&
+            !raceJockeyLockedByRegistration(registrations, selectedRaceId, item.jockeyId),
+        );
         const firstInv = raceInvitations[0];
         setTournamentRaces(races);
         setRegisterForm({
@@ -887,7 +1005,12 @@ export default function RoleHomeScreen({ user, onLogout }) {
     const races = t ? (t.races || []).filter(raceOpenForRegistration) : [];
     setTournamentRaces(races);
     const nextRaceId = races[0]?.id || races[0]?._id || '';
-    const raceInvitations = registerJockeys.filter((item) => String(item.raceId) === String(nextRaceId));
+    const raceInvitations = registerJockeys.filter(
+      (item) =>
+        sameId(item.raceId, nextRaceId) &&
+        !raceHorseLockedByRegistration(ownerRegistrations, nextRaceId, item.horseId) &&
+        !raceJockeyLockedByRegistration(ownerRegistrations, nextRaceId, item.jockeyId),
+    );
     const firstInv = raceInvitations[0];
     setRegisterForm(current => ({
       ...current,
@@ -902,6 +1025,26 @@ export default function RoleHomeScreen({ user, onLogout }) {
   async function submitRegistration() {
     if (!registerForm.tournamentId || !registerForm.raceId || !registerForm.horseId || !registerForm.jockeyInvitationId) {
       showAlert('Lỗi', 'Vui lòng chọn race, ngựa và lời mời jockey đã được chấp nhận.');
+      return;
+    }
+
+    const invitation = registerJockeys.find((item) => sameId(item.id, registerForm.jockeyInvitationId));
+    if (
+      !invitation ||
+      !sameId(invitation.raceId, registerForm.raceId) ||
+      !sameId(invitation.horseId, registerForm.horseId)
+    ) {
+      showAlert('Lỗi', 'Lời mời jockey không khớp với ngựa/cuộc đua đã chọn.');
+      return;
+    }
+
+    if (raceHorseLockedByRegistration(ownerRegistrations, registerForm.raceId, registerForm.horseId)) {
+      showAlert('Lỗi', 'Ngựa này đã được đăng ký trong cuộc đua này.');
+      return;
+    }
+
+    if (raceJockeyLockedByRegistration(ownerRegistrations, registerForm.raceId, invitation.jockeyId)) {
+      showAlert('Lỗi', 'Jockey này đã được đăng ký trong cuộc đua này.');
       return;
     }
 
@@ -1254,6 +1397,8 @@ export default function RoleHomeScreen({ user, onLogout }) {
             ownerHorses,
             ownerOpenRaces,
             allJockeys,
+            ownerInvitations,
+            ownerRegistrations,
             inviteForm,
             inviteSubmitting,
             inviteError,
@@ -1270,6 +1415,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
             tournamentRaces,
             ownerHorses,
             registerJockeys,
+            ownerRegistrations,
             registerForm,
             onChangeTournament: handleRegisterTournamentChange,
             onChangeRegisterForm: setRegisterForm,

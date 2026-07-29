@@ -29,6 +29,79 @@ export function RoleActionModals({
   );
 }
 
+const ACTIVE_INVITATION_STATUSES = new Set(['PENDING', 'Chờ xử lý', 'ACCEPTED', 'Đã chấp nhận']);
+const ACTIVE_REGISTRATION_STATUSES = new Set([
+  'PENDING',
+  'Chờ duyệt',
+  'APPROVED',
+  'Đã duyệt',
+  'ONGOING',
+  'Đang chạy',
+  'Đang diễn ra',
+]);
+
+function sameId(left, right) {
+  return String(left || '') === String(right || '');
+}
+
+function isActiveInvitation(item) {
+  return ACTIVE_INVITATION_STATUSES.has(item?.status);
+}
+
+function isActiveRegistration(item) {
+  return ACTIVE_REGISTRATION_STATUSES.has(item?.statusCode || item?.status);
+}
+
+function raceHorseLockedByInvitation(invitations, raceId, horseId) {
+  return (invitations || []).some(
+    (item) => isActiveInvitation(item) && sameId(item.raceId, raceId) && sameId(item.horseId, horseId),
+  );
+}
+
+function raceJockeyLockedByInvitation(invitations, raceId, jockeyId) {
+  return (invitations || []).some(
+    (item) => isActiveInvitation(item) && sameId(item.raceId, raceId) && sameId(item.jockeyId, jockeyId),
+  );
+}
+
+function raceHorseLockedByRegistration(registrations, raceId, horseId) {
+  return (registrations || []).some(
+    (item) => isActiveRegistration(item) && sameId(item.raceId, raceId) && sameId(item.horseId, horseId),
+  );
+}
+
+function raceJockeyLockedByRegistration(registrations, raceId, jockeyId) {
+  return (registrations || []).some(
+    (item) => isActiveRegistration(item) && sameId(item.raceId, raceId) && sameId(item.jockeyId, jockeyId),
+  );
+}
+
+function firstAvailableHorse(horses, invitations, registrations, raceId) {
+  return (horses || []).find(
+    (horse) =>
+      !raceHorseLockedByInvitation(invitations, raceId, horse.id) &&
+      !raceHorseLockedByRegistration(registrations, raceId, horse.id),
+  );
+}
+
+function firstAvailableJockey(jockeys, invitations, registrations, raceId) {
+  return (jockeys || []).find(
+    (jockey) =>
+      !raceJockeyLockedByInvitation(invitations, raceId, jockey.id) &&
+      !raceJockeyLockedByRegistration(registrations, raceId, jockey.id),
+  );
+}
+
+function uniqueByRaceHorse(items) {
+  const seen = new Set();
+  return (items || []).filter((item) => {
+    const key = `${item.raceId || ''}:${item.horseId || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function BetModal({
   visible,
   selectedMarket,
@@ -382,6 +455,8 @@ function JockeyInviteModal({
   ownerHorses,
   ownerOpenRaces,
   allJockeys,
+  ownerInvitations,
+  ownerRegistrations,
   inviteForm,
   inviteSubmitting,
   inviteError,
@@ -389,6 +464,19 @@ function JockeyInviteModal({
   onClose,
   onSubmit,
 }) {
+  const availableInviteHorses = (ownerHorses || []).filter(
+    (horse) =>
+      !inviteForm.raceId ||
+      (!raceHorseLockedByInvitation(ownerInvitations, inviteForm.raceId, horse.id) &&
+        !raceHorseLockedByRegistration(ownerRegistrations, inviteForm.raceId, horse.id)),
+  );
+  const availableInviteJockeys = (allJockeys || []).filter(
+    (jockey) =>
+      !inviteForm.raceId ||
+      (!raceJockeyLockedByInvitation(ownerInvitations, inviteForm.raceId, jockey.id) &&
+        !raceJockeyLockedByRegistration(ownerRegistrations, inviteForm.raceId, jockey.id)),
+  );
+
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
@@ -407,10 +495,14 @@ function JockeyInviteModal({
                   (r) => String(r.tournamentId) === String(tournamentId)
                 );
                 const firstRace = filteredRaces[0];
+                const firstHorse = firstAvailableHorse(ownerHorses, ownerInvitations, ownerRegistrations, firstRace?.id);
+                const firstJockey = firstAvailableJockey(allJockeys, ownerInvitations, ownerRegistrations, firstRace?.id);
                 onChangeInviteForm((curr) => ({
                   ...curr,
                   tournamentId,
                   raceId: firstRace ? firstRace.id : '',
+                  horseId: firstHorse?.id || '',
+                  jockeyId: firstJockey?.id || '',
                   remunerationAmount: firstRace?.entryFee ? String(firstRace.entryFee) : curr.remunerationAmount,
                 }));
               }}
@@ -423,18 +515,22 @@ function JockeyInviteModal({
               activeId={inviteForm.raceId}
               getId={(r) => r.id}
               getLabel={(r) => r.name}
-              onSelect={(id, race) =>
+              onSelect={(id, race) => {
+                const firstHorse = firstAvailableHorse(ownerHorses, ownerInvitations, ownerRegistrations, id);
+                const firstJockey = firstAvailableJockey(allJockeys, ownerInvitations, ownerRegistrations, id);
                 onChangeInviteForm((curr) => ({
                   ...curr,
                   raceId: id,
                   tournamentId: race.tournamentId || curr.tournamentId,
+                  horseId: firstHorse?.id || '',
+                  jockeyId: firstJockey?.id || '',
                   remunerationAmount: race.entryFee ? String(race.entryFee) : curr.remunerationAmount,
-                }))
-              }
+                }));
+              }}
             />
             <SelectorList
               label="Chọn ngựa của bạn:"
-              items={ownerHorses}
+              items={availableInviteHorses}
               activeId={inviteForm.horseId}
               getId={(h) => h.id}
               getLabel={(h) => h.name}
@@ -442,12 +538,15 @@ function JockeyInviteModal({
             />
             <SelectorList
               label="Chọn Jockey:"
-              items={allJockeys}
+              items={availableInviteJockeys}
               activeId={inviteForm.jockeyId}
               getId={(j) => j.id}
               getLabel={(j) => j.fullName || j.username}
               onSelect={(id) => onChangeInviteForm((curr) => ({ ...curr, jockeyId: id }))}
             />
+            {!availableInviteHorses.length && inviteForm.raceId ? (
+              <EmptyText text="Race này đã có đủ cặp ngựa/jockey hoặc ngựa đã đăng ký." />
+            ) : null}
             {inviteError ? <Text style={styles.inlineError}>{inviteError}</Text> : null}
 
             <Text style={styles.modalLabel}>Mức thù lao (VND):</Text>
@@ -472,7 +571,7 @@ function JockeyInviteModal({
             <ModalButtons
               cancelText="Hủy"
               confirmText={inviteSubmitting ? 'Đang gửi...' : 'Gửi lời mời'}
-              disabled={inviteSubmitting || !allJockeys?.length}
+              disabled={inviteSubmitting || !availableInviteHorses.length || !availableInviteJockeys.length}
               onCancel={onClose}
               onConfirm={onSubmit}
             />
@@ -489,12 +588,27 @@ function RaceRegistrationModal({
   tournamentRaces,
   ownerHorses,
   registerJockeys,
+  ownerRegistrations,
   registerForm,
   onChangeTournament,
   onChangeRegisterForm,
   onClose,
   onSubmit,
 }) {
+  const registrationInvitations = uniqueByRaceHorse(
+    (registerJockeys || []).filter(
+      (j) =>
+        (!registerForm.raceId || sameId(j.raceId, registerForm.raceId)) &&
+        !raceHorseLockedByRegistration(ownerRegistrations, registerForm.raceId, j.horseId) &&
+        !raceJockeyLockedByRegistration(ownerRegistrations, registerForm.raceId, j.jockeyId),
+    ),
+  );
+  const registrationHorseIds = new Set(registrationInvitations.map((item) => String(item.horseId)));
+  const registrationHorses = (ownerHorses || []).filter((horse) => registrationHorseIds.has(String(horse.id)));
+  const selectedHorseInvitations = registrationInvitations.filter(
+    (j) => !registerForm.horseId || sameId(j.horseId, registerForm.horseId),
+  );
+
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
@@ -517,7 +631,14 @@ function RaceRegistrationModal({
               getId={(r) => r.id || r._id}
               getLabel={(r) => `Race R${r.raceNumber} · ${r.name}`}
               onSelect={(raceId) => {
-                const raceInvitations = (registerJockeys || []).filter((item) => String(item.raceId) === String(raceId));
+                const raceInvitations = uniqueByRaceHorse(
+                  (registerJockeys || []).filter(
+                    (item) =>
+                      sameId(item.raceId, raceId) &&
+                      !raceHorseLockedByRegistration(ownerRegistrations, raceId, item.horseId) &&
+                      !raceJockeyLockedByRegistration(ownerRegistrations, raceId, item.jockeyId),
+                  ),
+                );
                 const firstInv = raceInvitations[0];
                 onChangeRegisterForm((curr) => ({
                   ...curr,
@@ -529,19 +650,12 @@ function RaceRegistrationModal({
             />
             <SelectorList
               label="Chọn ngựa của bạn:"
-              items={(ownerHorses || []).filter((h) => {
-                const validHorseIds = (registerJockeys || [])
-                  .filter((j) => !registerForm.raceId || String(j.raceId) === String(registerForm.raceId))
-                  .map((j) => String(j.horseId));
-                return validHorseIds.includes(String(h.id));
-              })}
+              items={registrationHorses}
               activeId={registerForm.horseId}
               getId={(h) => h.id}
               getLabel={(h) => h.name}
               onSelect={(id) => {
-                const matchingInv = (registerJockeys || []).find(
-                  (j) => String(j.raceId) === String(registerForm.raceId) && String(j.horseId) === String(id)
-                );
+                const matchingInv = registrationInvitations.find((j) => sameId(j.horseId, id));
                 onChangeRegisterForm((curr) => ({
                   ...curr,
                   horseId: id,
@@ -552,11 +666,7 @@ function RaceRegistrationModal({
 
             <SelectorList
               label="Chọn lời mời Jockey đã chấp nhận:"
-              items={(registerJockeys || []).filter(
-                (j) =>
-                  (!registerForm.raceId || String(j.raceId) === String(registerForm.raceId)) &&
-                  (!registerForm.horseId || String(j.horseId) === String(registerForm.horseId))
-              )}
+              items={selectedHorseInvitations}
               activeId={registerForm.jockeyInvitationId}
               getId={(j) => j.id}
               getLabel={(j) => `${j.jockeyName || 'Jockey'} · ${j.horseName || 'Ngựa'}`}
@@ -571,6 +681,8 @@ function RaceRegistrationModal({
             />
             {!registerJockeys?.length ? (
               <EmptyText text="Cần có lời mời Jockey đã chấp nhận trước khi đăng ký race." />
+            ) : !registrationInvitations.length ? (
+              <EmptyText text="Race này chưa có lời mời hợp lệ hoặc ngựa đã được đăng ký." />
             ) : null}
 
             <ModalButtons cancelText="Hủy" confirmText="Đăng ký ngay" onCancel={onClose} onConfirm={onSubmit} />
