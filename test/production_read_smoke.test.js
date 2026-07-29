@@ -138,6 +138,9 @@ async function run() {
     }
     expectObject(await request('GET', 'notifications?size=5', { token: tokens.owner }), 'owner notifications');
     expectObject(await request('GET', 'notifications/unread-count', { token: tokens.owner }), 'owner unread notifications');
+    expectObject(await request('GET', 'wallets/me', { token: tokens.owner }), 'owner wallet');
+    expectArray(await request('GET', 'wallets/me/transactions', { token: tokens.owner }), 'owner wallet transactions');
+    expectArray(await request('GET', 'wallets/me/withdrawals', { token: tokens.owner }), 'owner withdrawals');
   });
 
   await step('JOCKEY read endpoints', async () => {

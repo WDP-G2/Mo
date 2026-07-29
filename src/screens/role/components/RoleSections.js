@@ -5,6 +5,7 @@ import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInp
 import { colors } from '../../../constants/theme';
 import { ownerService } from '../../../services/ownerService';
 import { userService } from '../../../services/userService';
+import { walletService } from '../../../services/walletService';
 import { getRoleLabel } from '../../../utils/role';
 import { displayName, formatDate, initials, matchesQuery } from '../roleData';
 import { EmptyText, ListItem, Metric, ProfileField, Section } from './RolePrimitives';
@@ -1452,7 +1453,16 @@ function OwnerDetailModal({ item, type, onClose }) {
   );
 }
 
-export function Account({ user, role, data, onLogout, onRecordActivity, onProfileUpdated }) {
+export function Account({
+  user,
+  role,
+  data,
+  onLogout,
+  onRecordActivity,
+  onProfileUpdated,
+  onOpenDepositModal,
+  onRefresh,
+}) {
   const ownerProfile = data?.profile || {};
   const [form, setForm] = useState({
     fullName: displayName(user),
@@ -1465,6 +1475,15 @@ export function Account({ user, role, data, onLogout, onRecordActivity, onProfil
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [withdrawVisible, setWithdrawVisible] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawForm, setWithdrawForm] = useState({
+    amount: '',
+    bankName: '',
+    bankAccountNumber: '',
+    bankAccountName: '',
+    reason: '',
+  });
   const name = ownerProfile.fullName || form.fullName || displayName(user);
 
   useEffect(() => {
@@ -1530,6 +1549,50 @@ export function Account({ user, role, data, onLogout, onRecordActivity, onProfil
       setMessage(requestError.message || 'Không cập nhật được hồ sơ.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function submitWithdrawal() {
+    const amount = Number(withdrawForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setMessage('Số tiền rút phải lớn hơn 0.');
+      return;
+    }
+    if (amount > Number(data?.wallet?.availableBalance || 0)) {
+      setMessage('Số dư khả dụng không đủ để rút.');
+      return;
+    }
+    if (
+      !withdrawForm.bankName.trim() ||
+      !withdrawForm.bankAccountNumber.trim() ||
+      !withdrawForm.bankAccountName.trim()
+    ) {
+      setMessage('Vui lòng nhập đầy đủ thông tin tài khoản ngân hàng.');
+      return;
+    }
+
+    try {
+      setWithdrawing(true);
+      setMessage('');
+      await walletService.createWithdrawal({
+        ...withdrawForm,
+        idempotencyKey: `owner-withdraw-${Date.now()}`,
+      });
+      setWithdrawVisible(false);
+      setWithdrawForm({
+        amount: '',
+        bankName: '',
+        bankAccountNumber: '',
+        bankAccountName: '',
+        reason: '',
+      });
+      setMessage('Đã gửi yêu cầu rút tiền.');
+      onRecordActivity?.('cash-outline', 'Đã yêu cầu rút tiền', formatMoney(amount));
+      onRefresh?.();
+    } catch (requestError) {
+      setMessage(requestError.message || 'Không tạo được yêu cầu rút tiền.');
+    } finally {
+      setWithdrawing(false);
     }
   }
 
@@ -1607,6 +1670,143 @@ export function Account({ user, role, data, onLogout, onRecordActivity, onProfil
           <Text style={styles.saveProfileText}>{saving ? 'Đang lưu...' : 'Lưu hồ sơ'}</Text>
         </Pressable>
       </Section>
+
+      {role === 'OWNER' ? (
+        <Section title="Ví của tôi">
+          <View style={styles.walletSummary}>
+            <View style={styles.walletBalanceCard}>
+              <Text style={styles.walletBalanceLabel}>Khả dụng</Text>
+              <Text style={styles.walletBalanceValue}>
+                {formatMoney(data?.wallet?.availableBalance)}
+              </Text>
+            </View>
+            <View style={styles.walletBalanceCard}>
+              <Text style={styles.walletBalanceLabel}>Đang giữ</Text>
+              <Text style={styles.walletBalanceValue}>
+                {formatMoney(data?.wallet?.holdBalance)}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.detailActionRow}>
+            <Pressable style={styles.secondaryAction} onPress={onOpenDepositModal}>
+              <Text style={styles.secondaryActionText}>Nạp tiền</Text>
+            </Pressable>
+            <Pressable style={styles.primaryAction} onPress={() => setWithdrawVisible(true)}>
+              <Text style={styles.primaryActionText}>Rút tiền</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.walletSubheading}>Giao dịch gần đây</Text>
+          {(data?.walletTransactions || []).slice(0, 5).map((item) => (
+            <ListItem
+              key={item.id}
+              icon={item.direction === 'DEBIT' ? 'arrow-up-outline' : 'arrow-down-outline'}
+              title={item.description || item.type}
+              meta={`${formatDateTime(item.createdAt)} · Số dư ${formatMoney(item.balanceAfter)}`}
+              badge={`${item.availableDelta > 0 ? '+' : ''}${formatMoney(item.availableDelta)}`}
+            />
+          ))}
+          {!data?.walletTransactions?.length ? (
+            <EmptyText text="Chưa có giao dịch ví." />
+          ) : null}
+
+          {(data?.withdrawals || []).length ? (
+            <>
+              <Text style={styles.walletSubheading}>Yêu cầu rút gần đây</Text>
+              {(data.withdrawals || []).slice(0, 3).map((item) => (
+                <ListItem
+                  key={item.id}
+                  icon="cash-outline"
+                  title={formatMoney(item.amount)}
+                  meta={`${item.bankName || 'Ngân hàng'} · ${item.bankAccount || 'Chưa cập nhật'}`}
+                  badge={item.status}
+                />
+              ))}
+            </>
+          ) : null}
+        </Section>
+      ) : null}
+
+      <Modal
+        visible={withdrawVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setWithdrawVisible(false)}
+      >
+        <View style={styles.detailBackdrop}>
+          <View style={styles.detailModal}>
+            <View style={styles.detailHeader}>
+              <View style={styles.detailTitleBlock}>
+                <Text style={styles.detailEyebrow}>VÍ OWNER</Text>
+                <Text style={styles.detailTitle}>Yêu cầu rút tiền</Text>
+              </View>
+              <Pressable style={styles.detailClose} onPress={() => setWithdrawVisible(false)}>
+                <Ionicons name="close" size={20} color={colors.darkText} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.detailScroll} keyboardShouldPersistTaps="handled">
+              <ProfileField
+                label="Số tiền rút"
+                keyboardType="numeric"
+                value={withdrawForm.amount}
+                onChangeText={(value) =>
+                  setWithdrawForm((current) => ({
+                    ...current,
+                    amount: value.replace(/[^0-9]/g, ''),
+                  }))
+                }
+              />
+              <ProfileField
+                label="Ngân hàng"
+                value={withdrawForm.bankName}
+                onChangeText={(value) =>
+                  setWithdrawForm((current) => ({ ...current, bankName: value }))
+                }
+              />
+              <ProfileField
+                label="Số tài khoản"
+                keyboardType="numeric"
+                value={withdrawForm.bankAccountNumber}
+                onChangeText={(value) =>
+                  setWithdrawForm((current) => ({
+                    ...current,
+                    bankAccountNumber: value.replace(/[^0-9]/g, ''),
+                  }))
+                }
+              />
+              <ProfileField
+                label="Tên chủ tài khoản"
+                value={withdrawForm.bankAccountName}
+                onChangeText={(value) =>
+                  setWithdrawForm((current) => ({ ...current, bankAccountName: value }))
+                }
+              />
+              <ProfileField
+                label="Lý do / ghi chú"
+                multiline={true}
+                value={withdrawForm.reason}
+                onChangeText={(value) =>
+                  setWithdrawForm((current) => ({ ...current, reason: value }))
+                }
+              />
+              <View style={styles.detailActionRow}>
+                <Pressable style={styles.secondaryAction} onPress={() => setWithdrawVisible(false)}>
+                  <Text style={styles.secondaryActionText}>Hủy</Text>
+                </Pressable>
+                <Pressable
+                  disabled={withdrawing}
+                  style={[styles.primaryAction, withdrawing && styles.disabledButton]}
+                  onPress={submitWithdrawal}
+                >
+                  <Text style={styles.primaryActionText}>
+                    {withdrawing ? 'Đang gửi...' : 'Gửi yêu cầu'}
+                  </Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Pressable style={styles.logoutButton} onPress={onLogout}>
         <Ionicons name="log-out-outline" size={18} color="#1D1705" />
@@ -1858,6 +2058,38 @@ const styles = StyleSheet.create({
     color: colors.darkTextMuted,
     fontSize: 12,
     fontWeight: '700',
+  },
+  walletSummary: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  walletBalanceCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.darkBorder,
+    borderRadius: 12,
+    backgroundColor: colors.darkSurfaceSoft,
+    padding: 12,
+  },
+  walletBalanceLabel: {
+    color: colors.darkTextMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  walletBalanceValue: {
+    marginTop: 6,
+    color: colors.primary,
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  walletSubheading: {
+    marginBottom: 6,
+    marginTop: 16,
+    color: colors.darkText,
+    fontSize: 13,
+    fontWeight: '900',
   },
   saveProfileButton: {
     alignItems: 'center',

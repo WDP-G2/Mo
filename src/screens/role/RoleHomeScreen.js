@@ -1425,9 +1425,11 @@ export default function RoleHomeScreen({ user, onLogout }) {
                 data={data}
                 onLogout={onLogout}
                 onRecordActivity={recordActivity}
+                onOpenDepositModal={() => setDepositModalVisible(true)}
                 onProfileUpdated={(profile) =>
                   setData((current) => ({ ...current, profile: { ...current.profile, ...profile } }))
                 }
+                onRefresh={refreshData}
               />
             ) : null}
           </ScrollView>

@@ -5,6 +5,7 @@ import { ownerService } from '../../services/ownerService';
 import { refereeService } from '../../services/refereeService';
 import { spectatorService } from '../../services/spectatorService';
 import { tournamentService } from '../../services/tournamentService';
+import { walletService } from '../../services/walletService';
 import { normalizeRole } from '../../utils/role';
 
 export function roleOrSpectator(role) {
@@ -35,7 +36,19 @@ export function formatDate(value) {
 
 export async function loadDataForRole(role) {
   if (role === 'OWNER') {
-    const [dashboard, profile, results, openTournaments, registrations, horses, invitations, news] = await Promise.all([
+    const [
+      dashboard,
+      profile,
+      results,
+      openTournaments,
+      registrations,
+      horses,
+      invitations,
+      news,
+      wallet,
+      walletTransactions,
+      withdrawals,
+    ] = await Promise.all([
       ownerService.getDashboard(),
       ownerService.getProfile(),
       ownerService.getResults(),
@@ -44,9 +57,24 @@ export async function loadDataForRole(role) {
       ownerService.listHorses(),
       ownerService.listJockeyInvitations(),
       newsService.list(),
+      walletService.getMyWallet(),
+      walletService.listMyTransactions(),
+      walletService.listMyWithdrawals(),
     ]);
 
-    return { dashboard, profile, results, openTournaments, registrations, horses, invitations, news };
+    return {
+      dashboard,
+      profile,
+      results,
+      openTournaments,
+      registrations,
+      horses,
+      invitations,
+      news,
+      wallet,
+      walletTransactions,
+      withdrawals,
+    };
   }
 
   if (role === 'JOCKEY') {

@@ -28,8 +28,11 @@ export const ENDPOINTS = {
     list: '/horses',
   },
   wallets: {
+    me: '/wallets/me',
+    transactions: '/wallets/me/transactions',
     createDepositOrder: '/wallets/me/deposit-orders',
     payDepositOrderWithCard: (id) => `/wallets/me/deposit-orders/${id}/pay-with-card`,
+    withdrawals: '/wallets/me/withdrawals',
   },
   notifications: {
     list: '/notifications',
