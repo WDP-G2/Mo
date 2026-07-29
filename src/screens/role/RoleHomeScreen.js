@@ -38,7 +38,14 @@ import {
 } from '../../utils/ownerFlow.mjs';
 import { RoleActionModals } from './components/RoleActionModals';
 import { SearchBox, ListItem, EmptyText } from './components/RolePrimitives';
-import { Account, Horses, Overview, Schedule, Tasks } from './components/RoleSections';
+import {
+  Account,
+  Horses,
+  Overview,
+  RefereeCalendar,
+  Schedule,
+  Tasks,
+} from './components/RoleSections';
 import { buildStats, displayName, initials, loadDataForRole, roleOrSpectator } from './roleData';
 
 const tabs = [
@@ -51,6 +58,14 @@ const tabs = [
 const ownerTabs = [
   { key: 'overview', icon: 'grid-outline', activeIcon: 'grid', label: 'Tổng quan' },
   { key: 'horses', icon: 'footsteps-outline', activeIcon: 'footsteps', label: 'Ngựa' },
+  { key: 'schedule', icon: 'calendar-outline', activeIcon: 'calendar', label: 'Lịch' },
+  { key: 'tasks', icon: 'checkmark-done-outline', activeIcon: 'checkmark-done', label: 'Việc cần làm' },
+  { key: 'account', icon: 'person-outline', activeIcon: 'person', label: 'Tài khoản' },
+];
+
+const refereeTabs = [
+  { key: 'overview', icon: 'grid-outline', activeIcon: 'grid', label: 'Tổng quan' },
+  { key: 'operations', icon: 'flag-outline', activeIcon: 'flag', label: 'Điều hành' },
   { key: 'schedule', icon: 'calendar-outline', activeIcon: 'calendar', label: 'Lịch' },
   { key: 'tasks', icon: 'checkmark-done-outline', activeIcon: 'checkmark-done', label: 'Việc cần làm' },
   { key: 'account', icon: 'person-outline', activeIcon: 'person', label: 'Tài khoản' },
@@ -177,7 +192,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const role = roleOrSpectator(user?.role);
   const name = displayName(user);
   const activityUserKey = user?.id || user?._id || user?.email || name;
-  const visibleTabs = role === 'OWNER' ? ownerTabs : tabs;
+  const visibleTabs = role === 'OWNER' ? ownerTabs : role === 'REFEREE' ? refereeTabs : tabs;
 
   // Modal States
   const [betModalVisible, setBetModalVisible] = useState(false);
@@ -1372,17 +1387,43 @@ export default function RoleHomeScreen({ user, onLogout }) {
               />
             ) : null}
             {activeTab === 'schedule' ? (
+              role === 'REFEREE' ? (
+                <RefereeCalendar
+                  data={data}
+                  query={query}
+                  onStartRace={handleStartRace}
+                  onOpenRefereeRaceModal={openRefereeRaceModal}
+                  onOpenViolationModal={openViolationModal}
+                  onParticipantCheckIn={handleParticipantCheckIn}
+                  onUpdateGate={handleUpdateGate}
+                  onRandomizeGates={handleRandomizeGates}
+                />
+              ) : (
+                <Schedule
+                  role={role}
+                  data={data}
+                  query={query}
+                  onOwnerRegistrationWithdraw={handleOwnerRegistrationWithdraw}
+                  onStartRace={handleStartRace}
+                  onOpenBetModal={(market) => {
+                    setSelectedMarket(market);
+                    setSelectedOption(market.options[0] || null);
+                    setBetModalVisible(true);
+                  }}
+                  onOpenRefereeRaceModal={openRefereeRaceModal}
+                  onOpenViolationModal={openViolationModal}
+                  onParticipantCheckIn={handleParticipantCheckIn}
+                  onUpdateGate={handleUpdateGate}
+                  onRandomizeGates={handleRandomizeGates}
+                />
+              )
+            ) : null}
+            {activeTab === 'operations' && role === 'REFEREE' ? (
               <Schedule
                 role={role}
                 data={data}
                 query={query}
-                onOwnerRegistrationWithdraw={handleOwnerRegistrationWithdraw}
                 onStartRace={handleStartRace}
-                onOpenBetModal={(market) => {
-                  setSelectedMarket(market);
-                  setSelectedOption(market.options[0] || null);
-                  setBetModalVisible(true);
-                }}
                 onOpenRefereeRaceModal={openRefereeRaceModal}
                 onOpenViolationModal={openViolationModal}
                 onParticipantCheckIn={handleParticipantCheckIn}

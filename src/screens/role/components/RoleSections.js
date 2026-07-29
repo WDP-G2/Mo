@@ -666,6 +666,81 @@ export function Schedule({
   );
 }
 
+export function RefereeCalendar({
+  data,
+  query,
+  onParticipantCheckIn,
+  onOpenViolationModal,
+  onStartRace,
+  onOpenRefereeRaceModal,
+  onUpdateGate,
+  onRandomizeGates,
+}) {
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
+  const [selectedRace, setSelectedRace] = useState(null);
+  const scheduledRaces = (data.races || [])
+    .map((item) => ({
+      item,
+      dateKey: toCalendarDateKey(item.scheduledStartAt),
+      timestamp: new Date(item.scheduledStartAt).getTime(),
+    }))
+    .filter((entry) => entry.dateKey)
+    .sort((first, second) => first.timestamp - second.timestamp);
+  const firstRaceDate =
+    scheduledRaces.find((entry) => entry.timestamp >= Date.now())?.dateKey ||
+    scheduledRaces[0]?.dateKey ||
+    toCalendarDateKey(new Date());
+
+  useEffect(() => {
+    if (!selectedCalendarDate) setSelectedCalendarDate(firstRaceDate);
+  }, [firstRaceDate, selectedCalendarDate]);
+
+  const selectedDateRaces = scheduledRaces
+    .filter((entry) => entry.dateKey === selectedCalendarDate)
+    .map((entry) => entry.item)
+    .filter((item) => matchesQuery(item, query));
+
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>Lịch phân công trọng tài</Text>
+      <RaceCalendar
+        datedItems={scheduledRaces}
+        firstDate={firstRaceDate}
+        selectedDate={selectedCalendarDate}
+        onSelectDate={setSelectedCalendarDate}
+      />
+
+      <Section title={`Chặng đua ngày ${selectedCalendarDate || 'đã chọn'}`}>
+        {selectedDateRaces.map((item) => (
+          <Pressable key={item.id} onPress={() => setSelectedRace(item)}>
+            <ListItem
+              icon="flag-outline"
+              title={item.name || 'Cuộc đua'}
+              meta={`${formatDateTime(item.scheduledStartAt)} · ${item.tournamentName || 'Giải đấu'} · ${item.location || 'Chưa cập nhật địa điểm'}`}
+              badge={item.status}
+            />
+          </Pressable>
+        ))}
+        {!selectedDateRaces.length ? (
+          <EmptyText text="Ngày này chưa có chặng đua được phân công." />
+        ) : null}
+      </Section>
+
+      <RefereeRaceDetailModal
+        race={selectedRace}
+        data={data}
+        onClose={() => setSelectedRace(null)}
+        onParticipantCheckIn={onParticipantCheckIn}
+        onOpenViolationModal={onOpenViolationModal}
+        onStartRace={onStartRace}
+        onOpenRefereeRaceModal={onOpenRefereeRaceModal}
+        onUpdateGate={onUpdateGate}
+        onRandomizeGates={onRandomizeGates}
+      />
+    </View>
+  );
+}
+
 const horseApprovalFilters = [
   { key: 'ALL', label: 'Tất cả' },
   { key: 'APPROVED', label: 'Duyệt' },
