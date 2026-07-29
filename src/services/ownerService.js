@@ -96,14 +96,21 @@ export const ownerService = {
   },
 
   async createJockeyInvitation(payload) {
+    const idempotencyKey = payload.idempotencyKey || `invite-${Date.now()}`;
     const invitation = await apiRequest(ENDPOINTS.owner.createJockeyInvitation, {
       method: 'POST',
+      headers: {
+        'Idempotency-Key': idempotencyKey,
+      },
       body: {
         horseId: payload.horseId,
         raceId: payload.raceId,
+        tournamentId: payload.tournamentId,
         jockeyId: payload.jockeyId,
         message: payload.message || '',
         remunerationAmount: Number(payload.remunerationAmount || 0),
+        reward: Number(payload.remunerationAmount || 0),
+        idempotencyKey,
       },
     });
     return mapInvitation(invitation);
@@ -121,4 +128,3 @@ export const ownerService = {
     return mapRegistration(registration);
   },
 };
-

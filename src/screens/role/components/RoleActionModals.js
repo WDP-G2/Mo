@@ -409,7 +409,14 @@ function JockeyInviteModal({
               activeId={inviteForm.raceId}
               getId={(r) => r.id}
               getLabel={(r) => r.name}
-              onSelect={(id) => onChangeInviteForm((curr) => ({ ...curr, raceId: id }))}
+              onSelect={(id, race) =>
+                onChangeInviteForm((curr) => ({
+                  ...curr,
+                  raceId: id,
+                  tournamentId: race.tournamentId || '',
+                  remunerationAmount: race.entryFee ? String(race.entryFee) : curr.remunerationAmount,
+                }))
+              }
             />
             <SelectorList
               label="Chọn Jockey:"

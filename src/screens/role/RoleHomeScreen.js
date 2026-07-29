@@ -101,7 +101,14 @@ export default function RoleHomeScreen({ user, onLogout }) {
   const [newHorse, setNewHorse] = useState(emptyNewHorse);
 
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ horseId: '', raceId: '', jockeyId: '', message: '', remunerationAmount: '' });
+  const [inviteForm, setInviteForm] = useState({
+    horseId: '',
+    raceId: '',
+    tournamentId: '',
+    jockeyId: '',
+    message: '',
+    remunerationAmount: '',
+  });
   const [allJockeys, setAllJockeys] = useState([]);
   const [ownerHorses, setOwnerHorses] = useState([]);
   const [ownerOpenRaces, setOwnerOpenRaces] = useState([]);
@@ -403,6 +410,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
             openRaces.push({
               id: r.id || r._id,
               name: `Race R${r.raceNumber} · ${r.name}`,
+              tournamentId: t.id || t._id,
               tournamentName: t.name,
               entryFee: r.entryFee
             });
@@ -415,6 +423,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
         horseId: horses[0]?.id || '',
         jockeyId: availableJockeys[0]?.id || '',
         raceId: openRaces[0]?.id || '',
+        tournamentId: openRaces[0]?.tournamentId || '',
         message: '',
         remunerationAmount: openRaces[0]?.entryFee ? String(openRaces[0].entryFee) : '500000'
       });
@@ -433,7 +442,7 @@ export default function RoleHomeScreen({ user, onLogout }) {
   async function submitJockeyInvitation() {
     setInviteError('');
 
-    if (!inviteForm.horseId || !inviteForm.raceId || !inviteForm.jockeyId) {
+    if (!inviteForm.horseId || !inviteForm.raceId || !inviteForm.tournamentId || !inviteForm.jockeyId) {
       setInviteError('Vui lòng chọn ngựa, cuộc đua và jockey.');
       return;
     }
