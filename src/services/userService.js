@@ -18,6 +18,20 @@ export function mapUser(user) {
     avatarUrl: user.avatarUrl || '',
     role: user.role || 'USER',
     status: user.status || 'Đang hoạt động',
+    statusTone: user.statusTone || '',
+    availability: user.availability || user.status || '',
+    canInvite: user.canInvite !== false,
+    isBusy: user.isBusy === true,
+    invitationStatus: user.invitationStatus || '',
+    assignedHorse: user.assignedHorse || null,
+    assigned: user.assigned || null,
+    assignedOther: user.assignedOther || null,
+    license: user.license || '',
+    experience: Number(user.experience || 0),
+    wins: Number(user.wins || 0),
+    races: Number(user.races || 0),
+    winRate: Number(user.winRate || 0),
+    ranking: Number(user.ranking || 0),
   };
 }
 
